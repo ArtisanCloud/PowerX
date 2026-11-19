@@ -72,23 +72,33 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
   const incremental = width !== 320;
   const mode = incremental ? 'incremental' : 'compact';
   const label = incremental ? '分批物理缩容' : '物理缩容（归还磁盘）';
-  const table = incremental ? 'capability-event-publications' : 'capability-invocation-traces';
+  const table = width === 1440 ? 'capability-event-publications' : 'capability-invocation-traces';
+  const supportedSnapshot = () => {
+    const snapshot = maintenanceSnapshot();
+    return { ...snapshot, tables: snapshot.tables.map(row => ({ ...row, incremental_problem: '' })) };
+  };
   const notifications = page.getByTestId('maintenance-table-capability-event-publications');
   try {
+    f.status.snapshot = supportedSnapshot();
     await f.open();
     await notifications.uncheck();
     await page.getByTestId('maintenance-mode').click(); await page.getByRole('option', { name: label, exact: true }).click();
+    const chosenTable = page.getByTestId('maintenance-table-' + table);
+    if (incremental) await chosenTable.check();
     await f.choose('容量概览', 'overview'); await f.choose('数据库空间维护', 'databaseMaintenance');
     if (incremental) {
-      await expect(notifications).toBeChecked();
-      await expect(notifications).toBeDisabled();
-      await expect(page.getByTestId('maintenance-table-capability-invocation-traces')).toHaveCount(0);
+      await expect(chosenTable).toBeChecked();
+      await expect(chosenTable).toBeEnabled();
+      await expect(page.getByRole('radio')).toHaveCount(2);
       await expect.poll(() => f.streams.size).toBe(1);
-      f.status.snapshot = { ...maintenanceSnapshot(), incremental_problem: 'DATABASE_MAINTENANCE_INCREMENTAL_FSM_REQUIRED' };
+      const snapshot = supportedSnapshot();
+      f.status.snapshot = { ...snapshot, tables: snapshot.tables.map(row => row.id === table
+        ? { ...row, incremental_problem: 'DATABASE_MAINTENANCE_INCREMENTAL_FSM_REQUIRED' }
+        : row) };
       f.emit();
       await expect(page.getByTestId('maintenance-preview')).toBeDisabled();
       await expect(page.getByRole('status').filter({ hasText: 'pg_freespacemap' })).toBeVisible();
-      f.status.snapshot = maintenanceSnapshot();
+      f.status.snapshot = supportedSnapshot();
       f.emit();
       await expect(page.getByTestId('maintenance-preview')).toBeEnabled();
     } else {
@@ -112,12 +122,25 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
       await expect(page.getByTestId('database-maintenance-run')).toContainText('等待执行');
     }
     const reads = f.calls.reads; await page.waitForTimeout(1600); expect(f.calls.reads).toBe(reads);
+    const partial = width === 390;
     const done = { ...maintenanceRun('completed', f.calls.starts[0].request_id), mode, tables: [table], version: 8, preview_id: f.calls.starts[0].preview_id };
-    done.steps = done.steps.filter(row => done.tables.includes(row.table_id)); f.status.runs = [done]; f.status.active = undefined; f.status.snapshot = done.after!; f.emit();
-    await expect(page.getByTestId('database-maintenance-run')).toContainText('已完成');
-    await expect(page.getByTestId('database-maintenance-run')).toContainText('选定表占用变化');
+    done.steps = done.steps.filter(row => done.tables.includes(row.table_id)).map(step => {
+      const incrementalProgress = incremental ? { incremental: { slices_completed: 1, heap_reclaimed_bytes: 8388608 } } : {};
+      return { ...step, ...incrementalProgress, ...(partial ? { state: 'running' as const, finished_at: undefined } : {}) };
+    });
+    if (partial) {
+      done.state = 'failed';
+      done.problem = 'DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET';
+    }
+    const finalLabel = partial ? '执行停止' : '已完成';
+    f.status.runs = [done]; f.status.active = undefined; f.status.snapshot = supportedSnapshot(); f.emit();
+    const receipt = page.getByTestId('database-maintenance-run');
+    await expect(receipt).toContainText(finalLabel);
+    await expect(receipt).toContainText('选定表占用变化');
+    if (incremental) await expect(receipt).toContainText('已完成 1 批');
+    if (partial) await expect(receipt).not.toContainText('正在整理');
     await expect.poll(() => f.calls.reads).toBe(reads + 1);
-    await page.getByTestId('maintenance-history').click(); await expect(page.getByRole('dialog')).toContainText('已完成'); await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).toBeHidden();
+    await page.getByTestId('maintenance-history').click(); await expect(page.getByRole('dialog')).toContainText(finalLabel); await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.screenshot({ path: info.outputPath(`maintenance-completed-${width}.png`), fullPage: true });
     if (width === 1440) {

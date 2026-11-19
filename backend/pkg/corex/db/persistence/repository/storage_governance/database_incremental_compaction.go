@@ -17,8 +17,9 @@ import (
 const (
 	// IncrementalMaintenanceMode moves tuples within one fixed system table.
 	IncrementalMaintenanceMode = "incremental"
-	// IncrementalMaintenanceTable is the only relation eligible for this mode.
+	// IncrementalMaintenanceTable is the invocation notification relation ID.
 	IncrementalMaintenanceTable = "capability-event-publications"
+	incrementalAuditTable       = "capability-invocation-traces"
 	// IncrementalMaintenanceWorkingBytes leaves space for small writes, WAL and index maintenance.
 	IncrementalMaintenanceWorkingBytes = 192 << 20
 	incrementalBlockBytes              = 8192
@@ -26,6 +27,9 @@ const (
 	incrementalPagesPerTransaction     = 32
 	incrementalRowsPerTransaction      = 500
 	incrementalVersionsPerTransaction  = 1200
+	incrementalSlicesPerRun            = 64
+	incrementalWALBurstBytes           = 96 << 20
+	incrementalWALGrowthBytes          = 128 << 20
 )
 
 var (
@@ -35,6 +39,7 @@ var (
 	ErrIncrementalCapacity    = errors.New("database_maintenance_incremental_no_headroom")
 	ErrIncrementalProtected   = errors.New("database_maintenance_incremental_protected_tail")
 	ErrIncrementalLimit       = errors.New("database_maintenance_incremental_limit")
+	ErrIncrementalWAL         = errors.New("database_maintenance_incremental_wal_budget")
 	ErrIncrementalNoReclaim   = errors.New("database_maintenance_incremental_no_reclaim")
 )
 
@@ -44,7 +49,7 @@ func ValidMaintenanceRequest(mode string, ids []string) bool {
 	case "reuse", "compact":
 		return ValidMaintenanceTables(ids)
 	case IncrementalMaintenanceMode:
-		return len(ids) == 1 && ids[0] == IncrementalMaintenanceTable
+		return len(ids) == 1 && (ids[0] == IncrementalMaintenanceTable || ids[0] == incrementalAuditTable)
 	default:
 		return false
 	}
@@ -54,7 +59,7 @@ func ValidMaintenanceRequest(mode string, ids []string) bool {
 func IncrementalMaintenanceError(e error) bool {
 	return errors.Is(e, ErrIncrementalUnsupported) || errors.Is(e, ErrIncrementalFSM) ||
 		errors.Is(e, ErrIncrementalCapacity) || errors.Is(e, ErrIncrementalProtected) ||
-		errors.Is(e, ErrIncrementalLimit) || errors.Is(e, ErrIncrementalNoReclaim)
+		errors.Is(e, ErrIncrementalLimit) || errors.Is(e, ErrIncrementalWAL) || errors.Is(e, ErrIncrementalNoReclaim)
 }
 
 type incrementalQueryer interface {
@@ -63,12 +68,13 @@ type incrementalQueryer interface {
 
 // Lock the relation before rechecking this catalog contract in every write transaction.
 // Exclude dependencies that could execute SQL or write to another relation during UPDATE.
-func incrementalTableSafe(ctx context.Context, c incrementalQueryer, name string, oid int64) (bool, error) {
+func incrementalTableSafe(ctx context.Context, c incrementalQueryer, name string, table MaintenanceTable) (bool, error) {
 	var safe bool
 	e := c.QueryRowContext(ctx, `
 SELECT EXISTS(
  SELECT FROM pg_catalog.pg_class c JOIN pg_catalog.pg_am am ON am.oid=c.relam
  WHERE c.oid=$1 AND c.oid=pg_catalog.to_regclass($2)
+ AND ($4=0 OR pg_catalog.pg_relation_filenode(c.oid)::bigint=$4)
  AND c.relkind='r' AND c.relpersistence='p' AND am.amname='heap' AND c.reltablespace IN(0,1663)
  AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity AND NOT c.relhasrules
  AND NOT EXISTS(SELECT FROM pg_catalog.pg_inherits WHERE c.oid IN(inhparent,inhrelid))
@@ -76,13 +82,17 @@ SELECT EXISTS(
  AND NOT EXISTS(SELECT FROM pg_catalog.pg_constraint WHERE c.oid IN(conrelid,confrelid) AND contype NOT IN('p','u'))
  AND NOT EXISTS(SELECT FROM pg_catalog.pg_attribute WHERE attrelid=c.oid AND attnum>0 AND NOT attisdropped
   AND (attgenerated<>'' OR atttypid NOT IN ('pg_catalog.int4'::regtype,'pg_catalog.int8'::regtype,'pg_catalog.uuid'::regtype,
-     'pg_catalog.varchar'::regtype,'pg_catalog.bpchar'::regtype,'pg_catalog.text'::regtype,'pg_catalog.timestamptz'::regtype,'pg_catalog.jsonb'::regtype)))
+     'pg_catalog.varchar'::regtype,'pg_catalog.bpchar'::regtype,'pg_catalog.text'::regtype,'pg_catalog.timestamptz'::regtype,
+     'pg_catalog.jsonb'::regtype,'pg_catalog.bool'::regtype)))
  AND (SELECT count(*) FROM pg_catalog.pg_attribute WHERE attrelid=c.oid AND NOT attisdropped
-  AND (attname IN('record_class','status','topic') AND atttypid='pg_catalog.varchar'::regtype
-   OR attname='payload' AND atttypid='pg_catalog.jsonb'::regtype AND attnotnull
-   OR attname='terminal_at' AND atttypid='pg_catalog.timestamptz'::regtype
-   OR attname='deleted_at' AND atttypid='pg_catalog.timestamptz'::regtype))=6
- AND (SELECT count(*) FROM pg_catalog.pg_index WHERE indrelid=c.oid)<=8
+  AND (attname IN('record_class','status') AND atttypid='pg_catalog.varchar'::regtype
+   OR attname='deleted_at' AND atttypid='pg_catalog.timestamptz'::regtype
+   OR NOT $3 AND (attname='topic' AND atttypid='pg_catalog.varchar'::regtype
+    OR attname='payload' AND atttypid='pg_catalog.jsonb'::regtype AND attnotnull
+    OR attname='terminal_at' AND atttypid='pg_catalog.timestamptz'::regtype)
+   OR $3 AND (attname IN('request_payload','response_payload') AND atttypid='pg_catalog.jsonb'::regtype
+    OR attname='completed_at' AND atttypid='pg_catalog.timestamptz'::regtype)))=6
+ AND (SELECT count(*) FROM pg_catalog.pg_index WHERE indrelid=c.oid)<=CASE WHEN $3 THEN 11 ELSE 8 END
  AND NOT EXISTS(
    SELECT FROM pg_catalog.pg_index i JOIN pg_catalog.pg_class ix ON ix.oid=i.indexrelid
    JOIN pg_catalog.pg_am iam ON iam.oid=ix.relam
@@ -90,7 +100,7 @@ SELECT EXISTS(
     OR i.indexprs IS NOT NULL OR i.indpred IS NOT NULL OR ix.reltablespace NOT IN(0,1663)
     OR EXISTS(SELECT FROM pg_catalog.pg_opclass oc WHERE oc.oid=ANY(i.indclass)
              AND oc.opcnamespace<>'pg_catalog'::regnamespace)))
-)`, oid, name).Scan(&safe)
+)`, table.OID, name, table.ID == incrementalAuditTable, table.filenode).Scan(&safe)
 	return safe, e
 }
 
@@ -102,6 +112,7 @@ SELECT current_setting('server_version_num')::int BETWEEN 160000 AND 169999
  AND pg_size_bytes(current_setting('wal_segment_size'))<=16777216
  AND current_setting('archive_mode')='off'
  AND pg_has_role(current_user,'pg_read_all_stats','USAGE')
+ AND pg_catalog.has_function_privilege('pg_catalog.pg_ls_waldir()','EXECUTE')
  AND NOT EXISTS(SELECT FROM pg_catalog.pg_replication_slots)
  AND NOT EXISTS(SELECT FROM pg_catalog.pg_prepared_xacts)
  AND NOT EXISTS(SELECT FROM pg_catalog.pg_stat_activity WHERE pid<>pg_backend_pid() AND xact_start<now()-interval '30 seconds')
@@ -137,7 +148,7 @@ WHERE e.extname='pg_freespacemap' AND d.deptype='e' AND d.refclassid='pg_extensi
 	return pgx.Identifier{schema, "pg_freespace"}.Sanitize(), e
 }
 
-func (r *DatabaseMaintenanceRepository) incrementalReady(ctx context.Context, c *sql.Conn, snap MaintenanceSnapshot) (MaintenanceTable, string, error) {
+func (r *DatabaseMaintenanceRepository) incrementalReady(ctx context.Context, c *sql.Conn, snap MaintenanceSnapshot, id string) (MaintenanceTable, string, error) {
 	if !snap.LocalDiskVerified || !r.incrementalDiskSafe() {
 		return MaintenanceTable{}, "", ErrMaintenanceDisk
 	}
@@ -149,11 +160,11 @@ func (r *DatabaseMaintenanceRepository) incrementalReady(ctx context.Context, c 
 		return MaintenanceTable{}, "", ErrIncrementalUnsupported
 	}
 	for _, t := range snap.Tables {
-		if t.ID != IncrementalMaintenanceTable {
+		if t.ID != id {
 			continue
 		}
 		name := pgx.Identifier{r.schema, maintenanceTables[t.ID]}.Sanitize()
-		safe, e := incrementalTableSafe(ctx, c, name, t.OID)
+		safe, e := incrementalTableSafe(ctx, c, name, t)
 		if e != nil {
 			return MaintenanceTable{}, "", e
 		}
@@ -167,7 +178,7 @@ func (r *DatabaseMaintenanceRepository) incrementalReady(ctx context.Context, c 
 }
 
 // CheckIncremental validates the current tail and samples earlier FSM pages without changing tuples.
-func (r *DatabaseMaintenanceRepository) CheckIncremental(ctx context.Context, snap MaintenanceSnapshot) error {
+func (r *DatabaseMaintenanceRepository) CheckIncremental(ctx context.Context, snap MaintenanceSnapshot, id string) error {
 	pool, e := r.pool()
 	if e != nil {
 		return e
@@ -177,68 +188,69 @@ func (r *DatabaseMaintenanceRepository) CheckIncremental(ctx context.Context, sn
 		return e
 	}
 	defer c.Close()
-	table, fsm, e := r.incrementalReady(ctx, c, snap)
+	table, fsm, e := r.incrementalReady(ctx, c, snap, id)
 	if e != nil {
 		return e
 	}
 	name := pgx.Identifier{r.schema, maintenanceTables[table.ID]}.Sanitize()
 	end := table.HeapBytes / incrementalBlockBytes
-	return incrementalPrecheck(ctx, c, name, fsm, table.OID, incrementalStart(end), end)
+	return incrementalPrecheck(ctx, c, name, fsm, table, incrementalStart(end), end)
 }
 
 func incrementalStart(end int64) int64 {
 	return max(int64(1), end-incrementalPages)
 }
 
-// Watch WAL alongside the service's disk/lease monitor. WAL is cluster-wide,
-// so a concurrent write burst also cancels the batch. This is a stop threshold,
-// not a hard upper bound on what PostgreSQL or other processes can write.
-func incrementalWAL(ctx context.Context, c incrementalQueryer, from string) (int64, error) {
-	var bytes int64
-	e := c.QueryRowContext(ctx, `SELECT pg_wal_lsn_diff(pg_current_wal_insert_lsn(),$1::pg_lsn)::bigint`, from).Scan(&bytes)
-	return bytes, e
+// WAL traffic can be recycled into existing files. Keep separate limits for
+// generated WAL and the net increase in space occupied by the WAL directory.
+type incrementalWALSample struct {
+	lsn          string
+	trafficBytes int64
+	fileBytes    int64
 }
 
-func (r *DatabaseMaintenanceRepository) executeIncremental(ctx context.Context, c *sql.Conn, snap MaintenanceSnapshot, guard func(context.Context) error) error {
-	table, fsm, e := r.incrementalReady(ctx, c, snap)
+func sampleIncrementalWAL(ctx context.Context, c incrementalQueryer, from string) (incrementalWALSample, error) {
+	var s incrementalWALSample
+	e := c.QueryRowContext(ctx, `SELECT lsn::text, pg_catalog.pg_wal_lsn_diff(lsn,$1::pg_lsn)::bigint,
+(SELECT COALESCE(sum(size),0)::bigint FROM pg_catalog.pg_ls_waldir())
+FROM pg_catalog.pg_current_wal_insert_lsn() AS lsn`, from).Scan(&s.lsn, &s.trafficBytes, &s.fileBytes)
+	return s, e
+}
+
+func (r *DatabaseMaintenanceRepository) executeIncremental(ctx context.Context, c *sql.Conn, snap MaintenanceSnapshot, id string, guard func(context.Context) error, progress func(MaintenanceIncrementalProgress) error) error {
+	table, fsm, e := r.incrementalReady(ctx, c, snap, id)
 	if e != nil {
 		return e
 	}
-	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 12*time.Minute)
 	defer cancel()
 	if _, e = c.ExecContext(ctx, `SELECT set_config('search_path','pg_catalog,pg_temp',false),
 set_config('lock_timeout','500ms',false),set_config('vacuum_cost_delay','5ms',false),
 set_config('vacuum_cost_limit','200',false),set_config('statement_timeout','180s',false)`); e != nil {
 		return e
 	}
-	var startLSN string
-	if e = c.QueryRowContext(ctx, `SELECT pg_current_wal_insert_lsn()::text`).Scan(&startLSN); e != nil {
+	name := pgx.Identifier{r.schema, maintenanceTables[id]}.Sanitize()
+	if e = c.QueryRowContext(ctx, `SELECT pg_relation_filenode($1::oid)::bigint
+WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil {
+		if errors.Is(e, sql.ErrNoRows) {
+			return ErrMaintenanceTarget
+		}
 		return e
 	}
-	name := pgx.Identifier{r.schema, maintenanceTables[table.ID]}.Sanitize()
-	n := table.HeapBytes / incrementalBlockBytes
-	start := incrementalStart(n)
-	// PostgreSQL considers spilling to the end if its FSM cannot find room.
-	// A bounded sample only establishes that some earlier pages have room.
-	// Every actual move is checked independently before it commits.
-	if e = incrementalPrecheck(ctx, c, name, fsm, table.OID, start, n); e != nil {
+	initialWAL, e := sampleIncrementalWAL(ctx, c, "0/0")
+	if e != nil {
 		return e
 	}
-	check := func(checkCtx context.Context) error {
-		if e := guard(checkCtx); e != nil {
+	walLimit := initialWAL.fileBytes + incrementalWALGrowthBytes
+	burstStart := initialWAL.lsn
+	check := func() error {
+		if e := guard(ctx); e != nil {
 			return e
 		}
 		if !r.incrementalDiskSafe() {
 			return ErrMaintenanceDisk
 		}
-		bytes, e := incrementalWAL(checkCtx, c, startLSN)
-		if e != nil {
-			return e
-		}
-		if bytes >= 96<<20 {
-			return ErrIncrementalLimit
-		}
-		safe, e := incrementalClusterSafe(checkCtx, c)
+		safe, e := incrementalClusterSafe(ctx, c)
 		if e != nil {
 			return e
 		}
@@ -247,43 +259,145 @@ set_config('vacuum_cost_limit','200',false),set_config('statement_timeout','180s
 		}
 		return nil
 	}
-	for end := n; end > start; {
-		if e = check(ctx); e != nil {
+	pace := func() error {
+		sample, e := sampleIncrementalWAL(ctx, c, burstStart)
+		if e != nil {
 			return e
 		}
-		low := max(start, end-incrementalPagesPerTransaction)
-		if e = moveIncrementalWindow(ctx, c, name, table, low, end, startLSN); e != nil {
+		if sample.trafficBytes < incrementalWALBurstBytes && sample.fileBytes < walLimit {
+			return nil
+		}
+		for attempt := 0; attempt < 15; attempt++ {
+			timer := time.NewTimer(2 * time.Second)
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			}
+			if e = check(); e != nil {
+				return e
+			}
+			// Resume only under the same task-level file growth limit and after
+			// observing a quiet interval. A busy cluster gets priority.
+			next, err := sampleIncrementalWAL(ctx, c, sample.lsn)
+			if err != nil {
+				return err
+			}
+			if next.trafficBytes < incrementalWALBurstBytes/4 && next.fileBytes < walLimit {
+				burstStart = next.lsn
+				return nil
+			}
+			sample = next
+		}
+		return ErrIncrementalWAL
+	}
+	if e = incrementalMeasure(ctx, c, name, &table); e != nil {
+		return e
+	}
+	initialTotal := table.TotalBytes
+	// Small relations need fewer repeated index passes.
+	slices := min(incrementalSlicesPerRun, max(4, table.HeapBytes/(32<<20)))
+	deadline, _ := ctx.Deadline()
+	var reported MaintenanceIncrementalProgress
+	for slice := int64(0); slice < slices; slice++ {
+		if slice > 0 && time.Until(deadline) < 4*time.Minute {
+			return nil
+		}
+		if e = check(); e != nil {
 			return e
 		}
-		end = low
-	}
-	if e = check(ctx); e != nil {
-		return e
-	}
-	safe, e := incrementalTableSafe(ctx, c, name, table.OID)
-	if e != nil {
-		return e
-	}
-	if !safe {
-		return ErrIncrementalUnsupported
-	}
-	// VACUUM independently verifies the tail and acquires its own short
-	// exclusive lock for truncation. Constrain work to this heap and its indexes.
-	if e = r.vacuumIncrementalTail(ctx, c, name, startLSN); e != nil {
-		return e
-	}
-	var heap, total int64
-	if e = c.QueryRowContext(ctx, `SELECT pg_relation_size(oid),pg_total_relation_size(oid) FROM pg_class
-WHERE oid=to_regclass($1) AND oid=$2`, name, table.OID).Scan(&heap, &total); e != nil {
-		return e
-	}
-	if heap >= table.HeapBytes || total >= table.TotalBytes {
-		return ErrIncrementalNoReclaim
+		if e = incrementalMeasure(ctx, c, name, &table); e != nil {
+			return e
+		}
+		// Only verified net shrink can offset WAL growth. Recalculate using the
+		// current relation size so concurrent growth also consumes that credit.
+		walLimit = initialWAL.fileBytes + incrementalWALGrowthBytes + max(0, initialTotal-table.TotalBytes)
+		end := table.HeapBytes / incrementalBlockBytes
+		start := incrementalStart(end)
+		if e = incrementalPrecheck(ctx, c, name, fsm, table, start, end); e != nil {
+			return e
+		}
+		if e = prepareIncrementalTail(ctx, c, name, table, start, end, check, pace, walLimit); e != nil {
+			return e
+		}
+		if e = check(); e != nil {
+			return e
+		}
+		if e = pace(); e != nil {
+			return e
+		}
+		safe, e := incrementalTableSafe(ctx, c, name, table)
+		if e != nil {
+			return e
+		}
+		if !safe {
+			return ErrIncrementalUnsupported
+		}
+		// VACUUM verifies the tail itself and briefly locks this table for
+		// truncation. Its own traffic window starts at the VACUUM boundary.
+		vacuumWAL, e := sampleIncrementalWAL(ctx, c, "0/0")
+		if e != nil {
+			return e
+		}
+		if vacuumWAL.fileBytes >= walLimit {
+			return ErrIncrementalWAL
+		}
+		if e = r.vacuumIncrementalTail(ctx, c, name, vacuumWAL.lsn, walLimit); e != nil {
+			return e
+		}
+		after := table
+		if e = incrementalMeasure(ctx, c, name, &after); e != nil {
+			return e
+		}
+		if after.HeapBytes >= table.HeapBytes {
+			return ErrIncrementalNoReclaim
+		}
+		reported.SlicesCompleted++
+		reported.HeapReclaimedBytes += table.HeapBytes - after.HeapBytes
+		if e = progress(reported); e != nil {
+			return e
+		}
+		if after.TotalBytes >= table.TotalBytes {
+			return ErrIncrementalNoReclaim
+		}
 	}
 	return nil
 }
 
-func (r *DatabaseMaintenanceRepository) vacuumIncrementalTail(ctx context.Context, c *sql.Conn, name, startLSN string) error {
+func incrementalMeasure(ctx context.Context, c *sql.Conn, name string, table *MaintenanceTable) error {
+	e := c.QueryRowContext(ctx, `SELECT pg_relation_size(oid),pg_total_relation_size(oid)
+FROM pg_class WHERE oid=to_regclass($1) AND oid=$2 AND pg_relation_filenode(oid)::bigint=$3`, name, table.OID, table.filenode).Scan(&table.HeapBytes, &table.TotalBytes)
+	if errors.Is(e, sql.ErrNoRows) {
+		return ErrMaintenanceTarget
+	}
+	return e
+}
+
+func prepareIncrementalTail(ctx context.Context, c *sql.Conn, name string, table MaintenanceTable, start, end int64, check, pace func() error, walLimit int64) error {
+	pages := int64(incrementalPagesPerTransaction)
+	for end > start {
+		if e := check(); e != nil {
+			return e
+		}
+		if e := pace(); e != nil {
+			return e
+		}
+		low := max(start, end-pages)
+		e := moveIncrementalWindow(ctx, c, name, table, low, end, walLimit)
+		if errors.Is(e, ErrIncrementalLimit) && pages > 1 {
+			pages /= 2
+			continue
+		}
+		if e != nil {
+			return e
+		}
+		end = low
+	}
+	return nil
+}
+
+func (r *DatabaseMaintenanceRepository) vacuumIncrementalTail(ctx context.Context, c *sql.Conn, name, startLSN string, walLimit int64) error {
 	pool, e := r.pool()
 	if e != nil {
 		return e
@@ -300,13 +414,17 @@ func (r *DatabaseMaintenanceRepository) vacuumIncrementalTail(ctx context.Contex
 				return
 			case <-tick.C:
 				check, cancel := context.WithTimeout(work, time.Second)
-				wal, e := incrementalWAL(check, pool, startLSN)
+				wal, e := sampleIncrementalWAL(check, pool, startLSN)
 				cancel()
 				if work.Err() != nil {
 					return
 				}
-				if e != nil || wal >= 160<<20 {
-					stop(ErrIncrementalLimit)
+				if e != nil {
+					stop(e)
+					return
+				}
+				if wal.trafficBytes >= 160<<20 || wal.fileBytes >= walLimit {
+					stop(ErrIncrementalWAL)
 					return
 				}
 				if !r.incrementalDiskSafe() {
@@ -327,10 +445,22 @@ SKIP_DATABASE_STATS TRUE, PARALLEL 0, BUFFER_USAGE_LIMIT '2MB') `+name)
 	return e
 }
 
-const incrementalEligible = `COALESCE(record_class=$3 AND terminal_at IS NOT NULL AND deleted_at IS NULL
+const incrementalNotificationEligible = `COALESCE(record_class=$3 AND terminal_at IS NOT NULL AND deleted_at IS NULL
  AND status IN ('published','dispatched','failed','unrouted','quarantined')
  AND topic IN ('_topic.integration.gateway.invocation.succeeded','_topic.integration.gateway.invocation.failed')
  AND pg_column_size(payload)<=8192 AND pg_column_size(entry)<=8192,false)`
+
+const incrementalAuditEligible = `COALESCE(record_class=$3 AND completed_at IS NOT NULL AND deleted_at IS NULL
+ AND status IN ('completed','success','succeeded','failed','error','denied')
+ AND coalesce(pg_column_size(request_payload),0)+coalesce(pg_column_size(response_payload),0)<=8192
+ AND pg_column_size(entry)<=8192,false)`
+
+func incrementalPolicy(id string) (eligible, class, selfAssignment string) {
+	if id == incrementalAuditTable {
+		return incrementalAuditEligible, registry.InvocationAuditClass, "response_payload=response_payload"
+	}
+	return incrementalNotificationEligible, registry.InvocationNotificationClass, "payload=payload"
+}
 
 const incrementalRange = `ctid >= $1::tid AND ctid < $2::tid`
 
@@ -338,16 +468,17 @@ func incrementalTID(block int64) string {
 	return fmt.Sprintf("(%d,0)", block)
 }
 
-func incrementalPrecheck(ctx context.Context, c *sql.Conn, name, fsm string, oid, start, end int64) error {
+func incrementalPrecheck(ctx context.Context, c *sql.Conn, name, fsm string, table MaintenanceTable, start, end int64) error {
 	if end <= start {
 		return ErrIncrementalNoReclaim
 	}
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
 	defer cancel()
 	var nonempty, protected bool
-	e := c.QueryRowContext(ctx, `SELECT count(*)>0, COALESCE(bool_or(NOT (`+incrementalEligible+`)),false)
+	eligible, class, _ := incrementalPolicy(table.ID)
+	e := c.QueryRowContext(ctx, `SELECT count(*)>0, COALESCE(bool_or(NOT (`+eligible+`)),false)
 FROM ONLY `+name+` AS entry WHERE `+incrementalRange,
-		incrementalTID(start), incrementalTID(end), registry.InvocationNotificationClass).Scan(&nonempty, &protected)
+		incrementalTID(start), incrementalTID(end), class).Scan(&nonempty, &protected)
 	if e != nil {
 		return e
 	}
@@ -361,7 +492,7 @@ FROM ONLY `+name+` AS entry WHERE `+incrementalRange,
 	early := min(start, end*7/10)
 	step := max(int64(1), early/2048)
 	e = c.QueryRowContext(ctx, `SELECT EXISTS(SELECT FROM generate_series(0::bigint,$2::bigint-1,$3::bigint) b
-WHERE `+fsm+`($1::oid::regclass,b)>=2048 OFFSET 7)`, oid, early, step).Scan(&space)
+WHERE `+fsm+`($1::oid::regclass,b)>=2048 OFFSET 7)`, table.OID, early, step).Scan(&space)
 	if e != nil {
 		return e
 	}
@@ -371,7 +502,7 @@ WHERE `+fsm+`($1::oid::regclass,b)>=2048 OFFSET 7)`, oid, early, step).Scan(&spa
 	return nil
 }
 
-func moveIncrementalWindow(ctx context.Context, c *sql.Conn, name string, table MaintenanceTable, start, end int64, startLSN string) error {
+func moveIncrementalWindow(ctx context.Context, c *sql.Conn, name string, table MaintenanceTable, start, end, walLimit int64) error {
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
 	defer cancel()
 	tx, e := c.BeginTx(ctx, nil)
@@ -382,7 +513,7 @@ func moveIncrementalWindow(ctx context.Context, c *sql.Conn, name string, table 
 	if _, e = tx.ExecContext(ctx, `LOCK TABLE ONLY `+name+` IN SHARE UPDATE EXCLUSIVE MODE NOWAIT`); e != nil {
 		return e
 	}
-	safe, e := incrementalTableSafe(ctx, tx, name, table.OID)
+	safe, e := incrementalTableSafe(ctx, tx, name, table)
 	if e != nil {
 		return e
 	}
@@ -393,12 +524,13 @@ func moveIncrementalWindow(ctx context.Context, c *sql.Conn, name string, table 
 	var remaining int
 	var protected bool
 	lo, hi := incrementalTID(start), incrementalTID(end)
+	eligible, class, assignment := incrementalPolicy(table.ID)
 	e = tx.QueryRowContext(ctx, `WITH candidates AS MATERIALIZED (
- SELECT ctid AS position,(`+incrementalEligible+`) AS eligible FROM ONLY `+name+` AS entry
+ SELECT ctid AS position,(`+eligible+`) AS eligible FROM ONLY `+name+` AS entry
  WHERE `+incrementalRange+` LIMIT $4 FOR UPDATE NOWAIT
 )
 SELECT COALESCE(array_agg(position),'{}')::text,count(*),COALESCE(bool_or(NOT eligible),false)
-FROM candidates`, lo, hi, registry.InvocationNotificationClass, incrementalRowsPerTransaction+1).Scan(&positions, &remaining, &protected)
+FROM candidates`, lo, hi, class, incrementalRowsPerTransaction+1).Scan(&positions, &remaining, &protected)
 	if e != nil {
 		return e
 	}
@@ -417,7 +549,7 @@ FROM candidates`, lo, hi, registry.InvocationNotificationClass, incrementalRowsP
 		var moved, pastEnd int
 		e = tx.QueryRowContext(ctx, `
 WITH moved AS (
- UPDATE ONLY `+name+` SET payload=payload WHERE ctid=ANY($1::tid[]) RETURNING ctid
+ UPDATE ONLY `+name+` SET `+assignment+` WHERE ctid=ANY($1::tid[]) RETURNING ctid
 )
 SELECT COALESCE(array_agg(ctid) FILTER (WHERE ctid >= $2::tid),'{}')::text,
  count(*),count(*) FILTER (WHERE ctid >= $3::tid)
@@ -431,12 +563,12 @@ FROM moved`, positions, lo, hi).Scan(&positions, &moved, &pastEnd)
 		if e = tx.QueryRowContext(ctx, `SELECT cardinality($1::tid[])`, positions).Scan(&remaining); e != nil {
 			return e
 		}
-		wal, e := incrementalWAL(ctx, tx, startLSN)
+		wal, e := sampleIncrementalWAL(ctx, tx, "0/0")
 		if e != nil {
 			return e
 		}
-		if wal >= 96<<20 {
-			return ErrIncrementalLimit
+		if wal.fileBytes >= walLimit {
+			return ErrIncrementalWAL
 		}
 	}
 	var occupied bool

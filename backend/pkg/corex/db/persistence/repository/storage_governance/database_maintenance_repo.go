@@ -36,16 +36,18 @@ var maintenanceTables = map[string]string{
 }
 
 type MaintenanceTable struct {
-	ID                string `json:"id"`
-	OID               int64  `json:"oid"`
-	HeapBytes         int64  `json:"heap_bytes"`
-	IndexBytes        int64  `json:"index_bytes"`
-	TotalBytes        int64  `json:"total_bytes"`
-	LiveRowsEstimate  int64  `json:"live_rows_estimate"`
-	DeadRowsEstimate  int64  `json:"dead_rows_estimate"`
-	CanMaintain       bool   `json:"can_maintain"`
-	IndexesValid      bool   `json:"indexes_valid"`
-	DefaultTablespace bool   `json:"default_tablespace"`
+	ID                 string `json:"id"`
+	OID                int64  `json:"oid"`
+	HeapBytes          int64  `json:"heap_bytes"`
+	IndexBytes         int64  `json:"index_bytes"`
+	TotalBytes         int64  `json:"total_bytes"`
+	LiveRowsEstimate   int64  `json:"live_rows_estimate"`
+	DeadRowsEstimate   int64  `json:"dead_rows_estimate"`
+	CanMaintain        bool   `json:"can_maintain"`
+	IndexesValid       bool   `json:"indexes_valid"`
+	DefaultTablespace  bool   `json:"default_tablespace"`
+	IncrementalProblem string `json:"incremental_problem"`
+	filenode           int64
 }
 type MaintenanceSnapshot struct {
 	DatabaseOID        int64              `json:"database_oid"`
@@ -57,6 +59,12 @@ type MaintenanceSnapshot struct {
 	RewriteSafe        bool               `json:"rewrite_safe"`
 	IncrementalProblem string             `json:"incremental_problem,omitempty"`
 }
+// MaintenanceIncrementalProgress 记录已经测量并确认的主表文件缩减。
+type MaintenanceIncrementalProgress struct {
+	SlicesCompleted    int   `json:"slices_completed"`
+	HeapReclaimedBytes int64 `json:"heap_reclaimed_bytes"`
+}
+
 type MaintenanceSession struct {
 	PID         int       `json:"pid"`
 	StartedAt   time.Time `json:"started_at"`
@@ -157,14 +165,21 @@ func (r *DatabaseMaintenanceRepository) inspect(ctx context.Context, c *sql.Conn
 		canonical, resolveError := filepath.EvalSymlinks(serverDirectory)
 		out.LocalDiskVerified = e == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 && resolveError == nil && canonical == r.dataDirectory && unix.Stat(r.dataDirectory, &data) == nil && unix.Stat(r.filesystem, &root) == nil && data.Dev == root.Dev && uint64(data.Dev) == r.directoryDevice && data.Ino == r.directoryInode
 	}
-	if _, _, e := r.incrementalReady(ctx, c, out); e != nil {
-		switch {
-		case errors.Is(e, ErrMaintenanceDisk):
-			out.IncrementalProblem = "DATABASE_MAINTENANCE_DISK_UNVERIFIED"
-		case errors.Is(e, ErrIncrementalFSM):
-			out.IncrementalProblem = "DATABASE_MAINTENANCE_INCREMENTAL_FSM_REQUIRED"
-		default:
-			out.IncrementalProblem = "DATABASE_MAINTENANCE_INCREMENTAL_UNSUPPORTED"
+	for i := range out.Tables {
+		table := &out.Tables[i]
+		if _, _, e := r.incrementalReady(ctx, c, out, table.ID); e != nil {
+			switch {
+			case errors.Is(e, ErrMaintenanceDisk):
+				table.IncrementalProblem = "DATABASE_MAINTENANCE_DISK_UNVERIFIED"
+			case errors.Is(e, ErrIncrementalFSM):
+				table.IncrementalProblem = "DATABASE_MAINTENANCE_INCREMENTAL_FSM_REQUIRED"
+			default:
+				table.IncrementalProblem = "DATABASE_MAINTENANCE_INCREMENTAL_UNSUPPORTED"
+			}
+		}
+		// Older clients use the notification-only readiness field.
+		if table.ID == IncrementalMaintenanceTable {
+			out.IncrementalProblem = table.IncrementalProblem
 		}
 	}
 	return out, ctx.Err()
@@ -193,8 +208,8 @@ func SameMaintenanceTarget(expected, actual MaintenanceSnapshot, ids []string) b
 }
 
 // Execute 在单一固定连接上执行自动提交的维护语句；不把 VACUUM 放入事务块。
-func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode string, expected MaintenanceSnapshot, ids []string, before func(string, MaintenanceSession) error, after func(string) error, guard func(context.Context) error) error {
-	if !ValidMaintenanceRequest(mode, ids) || mode == IncrementalMaintenanceMode && guard == nil {
+func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode string, expected MaintenanceSnapshot, ids []string, before func(string, MaintenanceSession) error, after func(string) error, guard func(context.Context) error, progress func(MaintenanceIncrementalProgress) error) error {
+	if !ValidMaintenanceRequest(mode, ids) || mode == IncrementalMaintenanceMode && (guard == nil || progress == nil) {
 		return ErrMaintenanceTarget
 	}
 	p, e := r.pool()
@@ -290,7 +305,7 @@ func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode
 		}
 		switch mode {
 		case IncrementalMaintenanceMode:
-			e = r.executeIncremental(ctx, c, actual, guard)
+			e = r.executeIncremental(ctx, c, actual, id, guard, progress)
 		case "compact":
 			_, e = c.ExecContext(ctx, "VACUUM (FULL, ANALYZE) "+pgx.Identifier{r.schema, maintenanceTables[id]}.Sanitize())
 		default:

@@ -75,6 +75,8 @@ func maintenanceError(e error) error {
 		code = "DATABASE_MAINTENANCE_INCREMENTAL_NO_HEADROOM"
 	case errors.Is(e, repo.ErrIncrementalProtected):
 		code = "DATABASE_MAINTENANCE_INCREMENTAL_PROTECTED_TAIL"
+	case errors.Is(e, repo.ErrIncrementalWAL):
+		return controlError(409, "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET")
 	case errors.Is(e, repo.ErrIncrementalLimit):
 		code = "DATABASE_MAINTENANCE_INCREMENTAL_LIMIT"
 	case errors.Is(e, repo.ErrIncrementalNoReclaim):
@@ -106,6 +108,13 @@ func decodeMaintenance(row *m.CleanupRun, scope string) (DatabaseMaintenanceRun,
 	}
 	if out.Session != nil && (out.Session.PID <= 0 || out.Session.StartedAt.IsZero() || out.Session.Application != "px.dbmaint."+out.ID) {
 		return out, ErrStateUnavailable
+	}
+	for _, step := range out.Steps {
+		if progress := step.Incremental; progress != nil &&
+			(out.Mode != repo.IncrementalMaintenanceMode || step.TableID != out.Tables[0] ||
+				progress.SlicesCompleted <= 0 || progress.HeapReclaimedBytes <= 0) {
+			return out, ErrStateUnavailable
+		}
 	}
 	switch out.State {
 	case "preview", "consumed", "queued", "running", "cancel_requested", "cancelled", "completed", "failed", "unconfirmed", "reviewed":
@@ -250,6 +259,9 @@ func maintenanceRequirement(mode string, snapshot repo.MaintenanceSnapshot, ids 
 			if !t.IndexesValid {
 				return 0, repo.ErrMaintenanceIndexes
 			}
+			if mode == repo.IncrementalMaintenanceMode && t.IncrementalProblem != "" {
+				return 0, controlError(409, t.IncrementalProblem)
+			}
 			if mode == "compact" {
 				if !snapshot.LocalDiskVerified || !t.DefaultTablespace {
 					return 0, repo.ErrMaintenanceDisk
@@ -267,9 +279,6 @@ func maintenanceRequirement(mode string, snapshot repo.MaintenanceSnapshot, ids 
 	if mode == repo.IncrementalMaintenanceMode {
 		if !snapshot.LocalDiskVerified {
 			return 0, repo.ErrMaintenanceDisk
-		}
-		if snapshot.IncrementalProblem != "" {
-			return 0, controlError(409, snapshot.IncrementalProblem)
 		}
 		return repo.IncrementalMaintenanceWorkingBytes, nil
 	}
@@ -320,7 +329,7 @@ func (s *Service) PreviewDatabaseMaintenance(ctx context.Context, in DatabaseMai
 		return out, controlError(409, "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT")
 	}
 	if in.Mode == repo.IncrementalMaintenanceMode {
-		if e = s.maintenance.backend.CheckIncremental(run, snapshot); e != nil {
+		if e = s.maintenance.backend.CheckIncremental(run, snapshot, in.Tables[0]); e != nil {
 			return out, maintenanceError(e)
 		}
 	}

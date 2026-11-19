@@ -7,7 +7,7 @@ export type MaintenanceMode = 'reuse' | 'compact' | 'incremental';
 export type MaintenanceState = 'preview' | 'consumed' | 'queued' | 'running' | 'cancel_requested' | 'cancelled' | 'completed' | 'failed' | 'unconfirmed' | 'reviewed';
 export interface MaintenanceTable {
   id: MaintenanceTableID; oid: number; heap_bytes: number; index_bytes: number; total_bytes: number;
-  live_rows_estimate: number; dead_rows_estimate: number; can_maintain: boolean; indexes_valid: boolean; default_tablespace: boolean;
+  live_rows_estimate: number; dead_rows_estimate: number; can_maintain: boolean; indexes_valid: boolean; default_tablespace: boolean; incremental_problem?: string;
 }
 export interface MaintenanceSnapshot {
   database_oid: number; database_fingerprint: string; database_bytes: number; local_disk_verified: boolean;
@@ -17,7 +17,7 @@ export interface DatabaseMaintenanceRun {
   id: string; version: number; scope_id: string; state: MaintenanceState; mode: MaintenanceMode; actor: number;
   at: string; updated_at: string; expires_at?: string; preview_id?: string; tables: MaintenanceTableID[];
   before: MaintenanceSnapshot; after?: MaintenanceSnapshot; peak_bytes: number;
-  steps: { table_id: MaintenanceTableID; state: 'running' | 'completed'; started_at: string; finished_at?: string }[];
+  steps: { incremental?: { slices_completed: number; heap_reclaimed_bytes: number }; table_id: MaintenanceTableID; state: 'running' | 'completed'; started_at: string; finished_at?: string }[];
   problem?: string; cancelled_by?: number; reviewed_by?: number;
   filesystem_available_before?: number; filesystem_available_after?: number;
 }
@@ -39,6 +39,7 @@ export function decodeMaintenanceSnapshot(raw: unknown): MaintenanceSnapshot {
       d.incremental_problem !== undefined && typeof d.incremental_problem !== 'string' ||
       new Set(d.tables.map((x: any) => x.id)).size !== 2 || !d.tables.every((x: any) => x && table(x.id) && size(x.oid) && x.oid > 0 &&
         ['heap_bytes', 'index_bytes', 'total_bytes', 'live_rows_estimate', 'dead_rows_estimate'].every(k => size(x[k])) && x.total_bytes >= x.heap_bytes + x.index_bytes &&
+        (x.incremental_problem === undefined || typeof x.incremental_problem === 'string') &&
         ['can_maintain', 'indexes_valid', 'default_tablespace'].every(k => typeof x[k] === 'boolean'))) invalid();
   return d;
 }
@@ -52,9 +53,12 @@ export function decodeDatabaseMaintenanceRun(raw: unknown, expectedID?: string):
       d.preview_id !== undefined && !uuid(d.preview_id) || d.state !== 'preview' && d.state !== 'consumed' && !uuid(d.preview_id) ||
       !Array.isArray(d.steps) || d.steps.length > d.tables.length || new Set(d.steps.map((x: any) => x.table_id)).size !== d.steps.length ||
       !d.steps.every((x: any) => x && d.tables.includes(x.table_id) && ['running', 'completed'].includes(x.state) && time(x.started_at) &&
-        (x.state === 'completed' ? time(x.finished_at) && Date.parse(x.finished_at) >= Date.parse(x.started_at) : x.finished_at === undefined)) ||
+        (x.state === 'completed' ? time(x.finished_at) && Date.parse(x.finished_at) >= Date.parse(x.started_at) : x.finished_at === undefined) &&
+        (x.incremental === undefined || d.mode === 'incremental' && x.incremental &&
+          size(x.incremental.slices_completed) && x.incremental.slices_completed > 0 &&
+          size(x.incremental.heap_reclaimed_bytes) && x.incremental.heap_reclaimed_bytes > 0)) ||
       ['filesystem_available_before', 'filesystem_available_after'].some(k => d[k] !== undefined && !size(d[k]))) invalid();
-  if (d.mode === 'incremental' && (d.tables.length !== 1 || d.tables[0] !== 'capability-event-publications')) invalid();
+  if (d.mode === 'incremental' && d.tables.length !== 1) invalid();
   decodeMaintenanceSnapshot(d.before); if (d.after !== undefined) decodeMaintenanceSnapshot(d.after);
   if (d.state === 'completed' && (d.steps.length !== d.tables.length || d.steps.some((x: any) => x.state !== 'completed'))) invalid();
   return d;
