@@ -2,6 +2,8 @@
 
 Framework 使用 `POST /api/v1/tenant/invocations/stream` 调用 `com.corex.ai.llm.stream`，明确指定 `preferred_protocol=core_internal`。正式绑定为 `core://ai/llm/stream`、方法 `INVOKE`、`service_actor`、租户范围。DTO 使用 `LLMStreamRequest` 的 `model_key`、`inputs`、`params` 和 `stream_options`；不接收任意 URL、HTTP 方法、鉴权头、租户字段或额外 context。query 仅允许 env，且不能覆盖凭据中明确绑定的环境。
 
+STS 调用优先使用身份显式绑定的环境，其次使用租户的 `ai.current_env`。传入的 `env` 用于确认该环境。型号校验和流式执行共用此解析结果，规则与[默认文本模型读取](ai-llm-active-model.v1.md)一致。
+
 ## 授权与登记
 
 正式服务授权为 `_scope.ai.llm.stream / stream / capability / ai_llm_stream`。平台权限生成器必须生成 `type=capability_service`、`allow_api_key=true`、`api_key_explicit=true` 和固定内部 endpoint。保留 capability 发布、租户最新 registration、当前凭据及实时精确 grant、模型授权和版本锁检查。

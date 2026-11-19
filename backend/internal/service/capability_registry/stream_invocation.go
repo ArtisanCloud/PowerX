@@ -120,7 +120,10 @@ func (s *InvocationService) OpenStream(ctx context.Context, in InvocationInput, 
 		if !ok {
 			return nil, pluginServiceError(400, "CAPABILITY_SERVICE_STREAM_PAYLOAD_INVALID")
 		}
-		streamBody, e := streamer.InvokeCoreCapabilityStream(reqctx.WithTraceID(ctx, in.TraceID), CoreCapabilityInvokeInput{CapabilityID: in.CapabilityID, TenantUUID: in.TenantUUID, Method: "INVOKE", Endpoint: route.Endpoint, Body: body, Payload: in.Payload, Context: in.Context, Query: mapStringString(in.Payload["query"])})
+		streamBody, e := streamer.InvokeCoreCapabilityStream(reqctx.WithTraceID(ctx, in.TraceID), CoreCapabilityInvokeInput{
+			CapabilityID: in.CapabilityID, TenantUUID: in.TenantUUID, Method: "INVOKE", Endpoint: route.Endpoint,
+			Env: resolvedLLMEnvironment(ctx), Body: body, Payload: in.Payload, Context: in.Context, Query: mapStringString(in.Payload["query"]),
+		})
 		if e != nil {
 			return nil, e
 		}
@@ -137,6 +140,9 @@ func (s *InvocationService) OpenStream(ctx context.Context, in InvocationInput, 
 	body, query, err := streamBusinessPayload(in, binding)
 	if err != nil {
 		return nil, err
+	}
+	if env := resolvedLLMEnvironment(ctx); env != "" {
+		query.Set("env", env)
 	}
 	base, err := url.Parse(s.httpBaseURL)
 	if err != nil || base.Host == "" || base.User != nil || (base.Scheme != "http" && base.Scheme != "https") || (base.Path != "" && base.Path != "/") || base.RawQuery != "" || base.Fragment != "" {

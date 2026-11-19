@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	aisvc "github.com/ArtisanCloud/PowerX/internal/service/ai"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	customersvc "github.com/ArtisanCloud/PowerX/internal/service/customer"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
@@ -480,6 +481,11 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	}
 	if req.CapabilityID == runtimeidentity.CapabilityID {
 		c.Header("Cache-Control", "no-store")
+	}
+	if strings.TrimSpace(req.CapabilityID) == aisvc.LLMActiveModelCapability &&
+		(c.Request.URL.RawQuery != "" || c.GetHeader("X-PowerX-Env") != "") {
+		respondInvocationFailure(c, aisvc.MediaError(400, "AI_TYPED_OPERATION_REQUIRED"), req.TraceID)
+		return
 	}
 	tenantUUID, err := tenantUUIDFromRequest(c)
 	if err != nil {

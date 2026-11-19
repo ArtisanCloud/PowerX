@@ -49,6 +49,7 @@ type InvocationServiceOptions struct {
 	HTTPBaseURL           string
 	GRPCConn              *grpc.ClientConn
 	ModelVerifier         ModelKeyVerifier
+	TenantAIEnvironment   TenantAIEnvironmentLookup
 	CoreInvoker           CoreCapabilityInvoker
 	ServiceIdentityIssuer ServiceInvocationIdentityIssuer
 }
@@ -61,6 +62,7 @@ type InvocationService struct {
 	audit                 *AuditService
 	versionLock           VersionLock
 	modelVerifier         ModelKeyVerifier
+	tenantAIEnvironment   TenantAIEnvironmentLookup
 	now                   func() time.Time
 	httpClient            *http.Client
 	aiModalHTTPClient     *http.Client
@@ -89,9 +91,11 @@ type CoreCapabilityInvokeInput struct {
 	TenantUUID   string
 	Method       string
 	Endpoint     string
-	Query        map[string]string
-	Body         map[string]interface{}
-	Payload      map[string]interface{}
+	// Env is resolved by Core before model verification for service LLM calls.
+	Env     string
+	Query   map[string]string
+	Body    map[string]interface{}
+	Payload map[string]interface{}
 	// Context 仅包含调用方传入的参数，不混入 Selector 生成的路由元数据。
 	Context map[string]interface{}
 }
@@ -202,6 +206,7 @@ func NewInvocationService(opts InvocationServiceOptions) *InvocationService {
 		audit:                 audit,
 		versionLock:           opts.VersionLock,
 		modelVerifier:         opts.ModelVerifier,
+		tenantAIEnvironment:   opts.TenantAIEnvironment,
 		now:                   clock,
 		httpClient:            httpClient,
 		aiModalHTTPClient:     aiModalHTTPClient,
@@ -263,6 +268,14 @@ func (s *InvocationService) prepareInvocation(ctx context.Context, in Invocation
 	if !strings.EqualFold(strings.TrimSpace(record.Status), "published") {
 		return ctx, nil, fmt.Errorf("capability %s is not published", capabilityID)
 	}
+	if claims := reqctx.GetClaims(ctx); claims != nil && claims.Issuer == "powerx-sts" &&
+		(capabilityID == "com.corex.ai.llm.invoke" || capabilityID == "com.corex.ai.llm.stream") {
+		env, err := ResolveSTSLLMEnvironment(ctx, tenantUUID, extractQueryString(in.Payload, "env"), s.tenantAIEnvironment)
+		if err != nil {
+			return ctx, nil, err
+		}
+		ctx = context.WithValue(ctx, resolvedLLMEnvironmentKey{}, env)
+	}
 	if s.modelVerifier != nil && strings.HasPrefix(strings.ToLower(capabilityID), "com.corex.ai.") {
 		modality := extractStringFromBody(in.Payload, "modality")
 		modelKey := extractStringFromBody(in.Payload, "model_key")
@@ -276,7 +289,10 @@ func (s *InvocationService) prepareInvocation(ctx context.Context, in Invocation
 			if modelKey == "" && strings.Contains(strings.ToLower(capabilityID), ".stream") {
 				return ctx, nil, fmt.Errorf("model_key required")
 			}
-			env := extractQueryString(in.Payload, "env")
+			env := resolvedLLMEnvironment(ctx)
+			if env == "" {
+				env = extractQueryString(in.Payload, "env")
+			}
 			if err := s.modelVerifier.VerifyModelKey(ctx, tenantUUID, env, modality, modelKey); err != nil {
 				return ctx, nil, err
 			}
@@ -743,6 +759,9 @@ func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string,
 	values := parsed.Query()
 	for k, v := range payload.Query {
 		values.Set(k, v)
+	}
+	if env := resolvedLLMEnvironment(ctx); env != "" {
+		values.Set("env", env)
 	}
 	parsed.RawQuery = values.Encode()
 
@@ -1316,6 +1335,8 @@ func shouldSkipModelKeyVerification(capabilityID string, payload map[string]inte
 	// 媒体 v2 在固定 Core binding 内校验型号能力、配置和可信租户环境；
 	// 任务读取/取消使用 task_uuid，不能套用旧的 env query + model_key 验证器。
 	switch strings.ToLower(strings.TrimSpace(capabilityID)) {
+	case "com.corex.ai.llm.active_model.read":
+		return true
 	case "com.corex.ai.connection.test":
 		// 只读连接探测不要求型号；严格 DTO 与租户配置由固定 Core binding 校验。
 		return true

@@ -26,7 +26,14 @@ func TestSharedJWTSecretCannotForgeCoreIssuance(t *testing.T) {
 	require.ErrorIs(t, Verify(ctx, store, parsed), ErrNotIssued)
 	require.NoError(t, Record(ctx, store, &c))
 	require.NoError(t, Verify(ctx, store, parsed))
-	for _, alter := range []func(*reqctx.CoreXClaims){func(c *reqctx.CoreXClaims) { c.PluginID = "com.example.other" }, func(c *reqctx.CoreXClaims) { c.TenantUUID = uuid.NewString() }, func(c *reqctx.CoreXClaims) { c.Subject = "client:other" }, func(c *reqctx.CoreXClaims) { c.IsRoot = true }, func(c *reqctx.CoreXClaims) { c.ID = uuid.NewString() }} {
+	for _, alter := range []func(*reqctx.CoreXClaims){
+		func(c *reqctx.CoreXClaims) { c.PluginID = "com.example.other" },
+		func(c *reqctx.CoreXClaims) { c.TenantUUID = uuid.NewString() },
+		func(c *reqctx.CoreXClaims) { c.Subject = "client:other" },
+		func(c *reqctx.CoreXClaims) { c.IsRoot = true },
+		func(c *reqctx.CoreXClaims) { c.ID = uuid.NewString() },
+		func(c *reqctx.CoreXClaims) { c.Env = "prod" },
+	} {
 		forged := c
 		alter(&forged)
 		encoded, err := jwt.NewWithClaims(jwt.SigningMethodHS256, forged).SignedString(secret)
