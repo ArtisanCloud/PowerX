@@ -52,6 +52,14 @@ func (r *TaskHistoryRepository) Recoverable(ctx context.Context, subscriber stri
 	return rows, err
 }
 
+// PendingBySource retrieves committed, undispatched work for a trusted consumer.
+func (r *TaskHistoryRepository) PendingBySource(ctx context.Context, tenant, subscriber, source string, limit int) ([]eventfabricmodel.TaskHistory, error) {
+	var rows []eventfabricmodel.TaskHistory
+	err := r.db.WithContext(ctx).Where("tenant_key = ? AND subscriber_id = ? AND source = ? AND status = ?",
+		tenant, subscriber, source, eventfabricmodel.TaskHistoryStatusPending).Order("id").Limit(limit).Find(&rows).Error
+	return rows, err
+}
+
 func (r *TaskHistoryRepository) FindByKey(ctx context.Context, tenantKey, subscriberID, taskID string) (*eventfabricmodel.TaskHistory, error) {
 	if r == nil || r.db == nil {
 		return nil, nil

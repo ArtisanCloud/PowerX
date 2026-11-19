@@ -146,6 +146,87 @@
     "newImport": "Review again before a new import"
   },
   "storageGov": {
+    "datasets": {
+      "execution": {
+        "title": "Execution policy and batches",
+        "unavailable": "Policy state unavailable",
+        "pause": "Pause policy",
+        "action": "Action",
+        "target": "Archive destination",
+        "targetHint": "Choose a verified S3 target",
+        "enable": "Enable policy",
+        "affected": "Records affected",
+        "download": "Download verified archive",
+        "cancel": "Cancel ungranted batch",
+        "retry": "Retry original batch",
+        "run": "Run one batch",
+        "states": {
+          "enabled": "Policy enabled",
+          "paused": "Policy paused",
+          "draining": "Awaiting source receipt",
+          "queued": "Batch queued",
+          "authorized": "Execution grant issued",
+          "needs_reconciliation": "Source reconciliation required",
+          "committed": "Batch completed",
+          "aborted": "Aborted at source",
+          "cancelled": "Batch cancelled"
+        },
+        "actions": {
+          "delete": "Bounded deletion",
+          "archive": "Archive and retain source"
+        },
+        "confirm": {
+          "delete": "Dispatch one deletion batch using this preview",
+          "archive": "Dispatch one archive batch using this preview"
+        }
+      },
+      "title": "Dataset catalog",
+      "pageSize": "Physical size on this page (deduplicated)",
+      "owner": "Owner",
+      "all": "All",
+      "system": "System",
+      "plugin": "Plugin",
+      "preview": "Preview retention",
+      "systemPolicy": "Open system table management",
+      "empty": "No datasets in this view.",
+      "previous": "Previous",
+      "next": "Next",
+      "previewDescription": "Count eligible and protected records by tenant and retention period. This preview is read-only.",
+      "tenantSearch": "Find a tenant by name",
+      "search": "Search",
+      "tenant": "Tenant",
+      "chooseTenant": "Choose a tenant",
+      "days": "Retention days",
+      "bounds": "Allowed range {min}–{max} days",
+      "cutoff": "Cutoff",
+      "examined": "Examined",
+      "candidates": "Candidates",
+      "bounded": "The scan limit was reached. Counts cover the examined records.",
+      "retry": "Retry this preview",
+      "newPreview": "New preview",
+      "states": {
+        "pending": "Submitting",
+        "queued": "Queued",
+        "running": "Scanning",
+        "completed": "Preview complete",
+        "failed": "Preview failed",
+        "invalidated": "Source or authorization changed",
+        "expired": "Preview expired"
+      },
+      "protection": {
+        "referenced": "Still referenced",
+        "active": "In progress",
+        "retryable": "Retryable",
+        "unknown_eligibility": "Eligibility unknown",
+        "retained_evidence": "Evidence must be retained",
+        "latest_effective": "Latest effective record",
+        "incomplete_record": "Incomplete record"
+      },
+      "source": {
+        "unavailable": "Size unavailable",
+        "needs_revalidation": "Revalidation required"
+      }
+    },
     "release": {
       "remoteUnavailable": "Remote archiving is not ready for this release",
       "remoteHint": "Real SSH/OSS target and retrieval acceptance is incomplete. Remote probing, transfer, retrieval and cleanup stay disabled. Local monitoring and accepted local features remain available.",

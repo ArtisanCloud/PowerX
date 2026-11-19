@@ -1,0 +1,367 @@
+openapi: 3.0.3
+info:
+  title: PowerX 数据集目录与保留预览
+  version: 1.0.0-draft
+  description: >
+    T175 评审合同。Root 专用。目录统一展示系统和插件数据集，现有系统表接口继续管理原策略。
+    本合同包含目录、详情和插件只读预览。策略发布、启停、删除和归档接口在后续阶段定义。
+servers:
+  - url: /api/v1
+    description: 示例前缀，运行时以 server.api_prefix 为准
+security:
+  - RootUserJWT: []
+paths:
+  /admin/ops/storage/datasets:
+    get:
+      operationId: listStorageDatasets
+      summary: 查看存储治理数据集
+      parameters:
+        - name: owner_kind
+          in: query
+          schema: {type: string, enum: [system, plugin]}
+        - name: plugin_id
+          in: query
+          schema: {type: string, maxLength: 128}
+        - name: capacity_level
+          in: query
+          schema: {$ref: '#/components/schemas/CapacityLevel'}
+        - name: available_action
+          in: query
+          schema: {$ref: '#/components/schemas/AvailableAction'}
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+        - name: cursor
+          in: query
+          description: 绑定部署作用域与筛选条件的不透明游标，按数据集 UUID 续读
+          schema: {type: string}
+      responses:
+        '200':
+          description: 数据集及下一页游标
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [items, next_cursor, page_physical_bytes]
+                        properties:
+                          items:
+                            type: array
+                            items: {$ref: '#/components/schemas/Dataset'}
+                          next_cursor: {type: string, nullable: true}
+                          page_physical_bytes:
+                            type: integer
+                            minimum: 0
+                            nullable: true
+                            description: 当前页物理关系去重占用，当前页有未测量项时为 null。
+        '400': {$ref: '#/components/responses/Invalid'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /admin/ops/storage/datasets/{dataset_id}:
+    parameters:
+      - $ref: '#/components/parameters/DatasetID'
+    get:
+      operationId: getStorageDataset
+      summary: 查看数据集范围、当前观测和可用操作
+      responses:
+        '200':
+          description: 数据集详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data: {$ref: '#/components/schemas/Dataset'}
+              examples:
+                fixedSystemTable:
+                  $ref: '#/components/examples/FixedSystemTable'
+                syntheticPluginReport:
+                  $ref: '#/components/examples/SyntheticPluginReport'
+        '400': {$ref: '#/components/responses/Invalid'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /admin/ops/storage/datasets/{dataset_id}/previews:
+    parameters:
+      - $ref: '#/components/parameters/DatasetID'
+    post:
+      operationId: createStorageDatasetPreview
+      summary: 为一个租户预览插件数据保留期限
+      description: >
+        request_uuid 在当前部署内唯一。同一操作者、数据集与请求内容重放返回原请求及当前状态。
+        仅接纳当前版本且可预览的插件数据集。记录任务与固定截止时间，源库以只读事务扫描。
+        响应丢失时先按原 request_uuid 查询。既有系统预览沿用系统表合同。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PreviewInput'}
+      responses:
+        '200': {$ref: '#/components/responses/PreviewReceipt'}
+        '202': {$ref: '#/components/responses/PreviewReceipt'}
+        '400': {$ref: '#/components/responses/Invalid'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /admin/ops/storage/datasets/{dataset_id}/previews/{request_uuid}:
+    parameters:
+      - $ref: '#/components/parameters/DatasetID'
+      - name: request_uuid
+        in: path
+        required: true
+        schema: {$ref: '#/components/schemas/NonZeroUUID'}
+    get:
+      operationId: getStorageDatasetPreview
+      summary: 按原请求查询插件预览
+      description: >
+        仅原 Root 操作者可查询自己的预览。首次载入、收到既有 storage runtime SSE 的变更事件、
+        手动刷新或重连时读取。过期和失效的记录在回执保留期内仍可核对。
+      responses:
+        '200': {$ref: '#/components/responses/PreviewReceipt'}
+        '400': {$ref: '#/components/responses/Invalid'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+components:
+  securitySchemes:
+    RootUserJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 平台 Root 人类访问会话
+  parameters:
+    DatasetID:
+      name: dataset_id
+      in: path
+      required: true
+      schema: {$ref: '#/components/schemas/NonZeroUUID'}
+      description: 响应中的 dataset_uuid
+  responses:
+    Invalid:
+      description: 请求字段、UUID 或游标无效
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Unauthorized:
+      description: 缺少有效访问会话
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Forbidden:
+      description: 需要平台 Root 或原请求操作者授权
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    NotFound:
+      description: 当前作用域内数据集或原请求不存在
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Conflict:
+      description: 接纳版本已变更或请求 UUID 已绑定不同内容
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Unprocessable:
+      description: 数据集不支持该预览，租户未启用或期限超出声明范围
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Unavailable:
+      description: 目录、来源或正式任务接纳当前不可用
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    PreviewReceipt:
+      description: 原预览回执。202 表示新任务已持久接纳
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Success'
+              - type: object
+                properties:
+                  data: {$ref: '#/components/schemas/Preview'}
+  schemas:
+    NonZeroUUID:
+      type: string
+      format: uuid
+      pattern: '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+      not:
+        enum: ['00000000-0000-0000-0000-000000000000']
+    Success:
+      type: object
+      required: [code, message, data, timestamp]
+      properties:
+        code: {type: integer, enum: [200, 202]}
+        message: {type: string}
+        data: {type: object}
+        timestamp: {type: integer, format: int64}
+        request_id: {type: string}
+    Problem:
+      type: object
+      required: [code, message, timestamp]
+      properties:
+        code: {type: integer}
+        message: {type: string}
+        error_code: {type: string}
+        reason_code: {type: string}
+        timestamp: {type: integer, format: int64}
+        request_id: {type: string}
+    CapacityLevel:
+      type: string
+      enum: [normal, warning, unknown]
+    AvailableAction:
+      type: string
+      enum: [observe, preview, delete, archive, open_existing_policy]
+    Dataset:
+      type: object
+      required: [dataset_uuid, dataset_key, name, owner_kind, tenant_scope, source_state, registration_state, governance_class, observation, available_actions]
+      properties:
+        dataset_uuid: {$ref: '#/components/schemas/NonZeroUUID'}
+        dataset_key: {type: string}
+        name: {type: string}
+        owner_kind: {type: string, enum: [system, plugin]}
+        plugin_id: {type: string}
+        tenant_scope: {type: string, enum: [platform, tenant]}
+        source_binding_uuid: {$ref: '#/components/schemas/NonZeroUUID'}
+        source_state: {type: string, enum: [ready, unavailable, needs_revalidation]}
+        registration_state: {type: string, enum: [builtin, pending_validation, accepted, needs_revalidation, retired]}
+        acceptance_revision: {type: integer, minimum: 1, maximum: 9007199254740991}
+        contract_version: {type: integer, minimum: 1, maximum: 9007199254740991}
+        status_reason: {type: string}
+        governance_class: {type: string, enum: [protected, retention_review]}
+        observation: {$ref: '#/components/schemas/Observation'}
+        available_actions:
+          type: array
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/AvailableAction'}
+        retention_bounds:
+          type: object
+          required: [minimum_days, maximum_days, suggested_days]
+          properties:
+            minimum_days: {type: integer, minimum: 1, maximum: 3650}
+            maximum_days: {type: integer, minimum: 1, maximum: 3650}
+            suggested_days: {type: integer, minimum: 1, maximum: 3650}
+        existing_policy_refs:
+          type: array
+          items:
+            type: object
+            required: [kind, legacy_table_id]
+            properties:
+              kind: {type: string, enum: [system_table_retention, invocation_retention]}
+              legacy_table_id: {type: string}
+    Observation:
+      type: object
+      required: [state, level, coverage, observed_at, total_bytes, net_change_bytes]
+      properties:
+        state: {type: string, enum: [observed, stale, unavailable]}
+        level: {$ref: '#/components/schemas/CapacityLevel'}
+        coverage: {type: string, enum: [complete, partial, unknown]}
+        observed_at: {type: string, format: date-time, nullable: true}
+        total_bytes:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 9007199254740991
+          description: 覆盖完整时的共享物理占用，未知为 null，不能按租户份数加总
+        net_change_bytes:
+          type: integer
+          nullable: true
+          minimum: -9007199254740991
+          maximum: 9007199254740991
+          description: 同来源连续采样的净占用差，缺少有效基线时为 null
+    PreviewInput:
+      type: object
+      additionalProperties: false
+      required: [request_uuid, tenant_uuid, expected_acceptance_revision, retention_days]
+      properties:
+        request_uuid: {$ref: '#/components/schemas/NonZeroUUID'}
+        tenant_uuid: {$ref: '#/components/schemas/NonZeroUUID'}
+        expected_acceptance_revision: {type: integer, minimum: 1, maximum: 9007199254740991}
+        retention_days: {type: integer, minimum: 1, maximum: 3650}
+    Preview:
+      type: object
+      required: [request_uuid, dataset_uuid, tenant_uuid, acceptance_revision, retention_days, cutoff_at, expires_at, state]
+      properties:
+        request_uuid: {$ref: '#/components/schemas/NonZeroUUID'}
+        dataset_uuid: {$ref: '#/components/schemas/NonZeroUUID'}
+        tenant_uuid: {$ref: '#/components/schemas/NonZeroUUID'}
+        acceptance_revision: {type: integer, minimum: 1, maximum: 9007199254740991}
+        retention_days: {type: integer, minimum: 1, maximum: 3650}
+        cutoff_at: {type: string, format: date-time}
+        expires_at: {type: string, format: date-time}
+        state: {type: string, enum: [queued, running, completed, failed, invalidated, expired]}
+        status_reason: {type: string}
+        result:
+          type: object
+          description: 仅当前有效的 completed 结果包含此字段
+          required: [coverage, examined_count, candidate_count, protected_by_reason]
+          properties:
+            coverage: {type: string, enum: [complete, bounded]}
+            examined_count: {type: integer, minimum: 0, maximum: 2048}
+            candidate_count: {type: integer, minimum: 0, maximum: 2048}
+            protected_by_reason:
+              type: array
+              maxItems: 7
+              uniqueItems: true
+              items:
+                type: object
+                required: [reason, count]
+                properties:
+                  reason: {type: string, enum: [referenced, active, retryable, unknown_eligibility, retained_evidence, latest_effective, incomplete_record]}
+                  count: {type: integer, minimum: 1, maximum: 2048}
+  examples:
+    FixedSystemTable:
+      summary: 固定健康探测历史与现有策略入口
+      value:
+        code: 200
+        message: success
+        timestamp: 1794990600
+        data:
+          dataset_uuid: 6dc20354-06ee-4d80-aaa9-1468cbc4f887
+          dataset_key: capability_registry_health_probe_results
+          name: 能力健康探测历史
+          owner_kind: system
+          tenant_scope: platform
+          source_state: ready
+          registration_state: builtin
+          governance_class: retention_review
+          observation: {state: observed, level: normal, coverage: complete, observed_at: '2026-11-18T08:30:00Z', total_bytes: 3145728, net_change_bytes: null}
+          available_actions: [observe, open_existing_policy]
+          existing_policy_refs:
+            - {kind: system_table_retention, legacy_table_id: capability_registry_health_probe_results}
+    SyntheticPluginReport:
+      summary: 已接纳的合成插件报告样本
+      value:
+        code: 200
+        message: success
+        timestamp: 1794990600
+        data:
+          dataset_uuid: 0d54cfd3-8274-4b45-890b-9374afb83baa
+          dataset_key: fixture_report
+          name: 合成执行报告
+          owner_kind: plugin
+          plugin_id: com.powerx.plugins.storage-fixture
+          tenant_scope: tenant
+          source_binding_uuid: 4d133c0f-c919-4a39-8488-27b01318c4b8
+          source_state: ready
+          registration_state: accepted
+          acceptance_revision: 1
+          contract_version: 1
+          governance_class: retention_review
+          observation: {state: observed, level: normal, coverage: complete, observed_at: '2026-11-18T08:30:00Z', total_bytes: 4194304, net_change_bytes: 131072}
+          available_actions: [observe, preview]
+          retention_bounds: {minimum_days: 7, maximum_days: 3650, suggested_days: 30}

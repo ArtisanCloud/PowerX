@@ -1,4 +1,13 @@
 required_capabilities:
+  - capability_id: com.corex.storage.datasets.execution_worker
+    source: corex.storage.datasets
+    reason: Plugin storage execution requires an explicit STS grant and a durable Core-authorized batch.
+  - capability_id: com.corex.storage.datasets.preview_worker
+    source: corex.storage.datasets
+    reason: Framework STS must claim and report a Core-originated read-only preview through a typed binding.
+  - capability_id: com.corex.storage.datasets.register
+    source: corex.storage.datasets
+    reason: Framework STS registration is typed and restricted to the active installation of its own plugin.
   - capability_id: com.corex.notifications.creation_receipts.read
     source: corex.notifications
     reason: Plugins need an explicit read-only service grant for owned creation receipt reconciliation.

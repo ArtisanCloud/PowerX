@@ -6,6 +6,7 @@ import (
 	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	lifecycle "github.com/ArtisanCloud/PowerX/internal/infra/storage_lifecycle"
 	storagerecovery "github.com/ArtisanCloud/PowerX/internal/infra/storage_recovery"
+	taskqueue "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/task_queue"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger/writer"
 	"gorm.io/gorm"
 	"time"
@@ -83,6 +84,9 @@ type Options struct {
 	RecoveryAnchor           *storagerecovery.Store
 	RequireRecoveryAnchor    bool
 	DatabaseCollector        DatabaseCollector
+	DatasetSources           *DatasetSources
+	DatasetTasks             *taskqueue.RuntimeService
+	DatasetExecutionEnabled  bool
 	SamplingConfigured       bool
 	SamplingWorkerEnabled    bool
 	LogLifecycle             LogLifecycle

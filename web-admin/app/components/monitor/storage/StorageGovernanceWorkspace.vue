@@ -57,6 +57,9 @@
             <StoragePolicyDraftPanel v-if="draftsVisited" :key="identityKey" :resources="overview?.resources || []" :filesystem="overview?.filesystem" :runtime="overview?.runtime" :runtime-revision="runtimeRevision" @runtime-observed="runtimeObserved" @refresh="load" @open-runtime="openRuntime" @open-archives="section = 'archives'" @open-records="section = 'cleanup'" @cleanup-changed="cleanupRevision++; load()" />
           </div>
         </template>
+        <template #datasets>
+          <StorageDatasetsPanel v-if="datasetsVisited" :key="identityKey" :revision="datasetRevision" :refresh="datasetRefresh" @open-system-tables="section = 'databaseTables'" />
+        </template>
         <template #databaseTables><SystemDatabaseTablesPanel v-if="databaseTablesVisited" :key="identityKey" :revision="runtimeRevision" @open-retention="section = 'databaseRetention'" /></template>
         <template #databaseRetention><DatabaseRetentionPanel v-if="databaseRetentionVisited" :key="identityKey" :revision="runtimeRevision" @open-maintenance="section = 'databaseMaintenance'" /></template>
         <template #databaseMaintenance><DatabaseSpaceMaintenancePanel v-if="databaseMaintenanceVisited" :key="identityKey" :revision="runtimeRevision" @open-retention="section = 'databaseRetention'" /></template>
@@ -82,6 +85,7 @@ import StorageRuntimePanel from './StorageRuntimePanel.vue';
 import DatabaseRetentionPanel from './DatabaseRetentionPanel.vue';
 import DatabaseSpaceMaintenancePanel from './DatabaseSpaceMaintenancePanel.vue';
 import SystemDatabaseTablesPanel from './SystemDatabaseTablesPanel.vue';
+import StorageDatasetsPanel from './StorageDatasetsPanel.vue';
 import ArchiveGovernancePanel from '~/components/ops/backup/ArchiveGovernancePanel.vue';
 import { useStorageGovernanceEvents } from '~/composables/useStorageGovernanceEvents';
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
@@ -107,6 +111,7 @@ const props = defineProps<{ allowed: boolean; identityKey: string }>();
 const { t, te } = useI18n();
 const api = useStorageGovernanceService();
 const section = ref('overview'), scope = ref('all'), overviewView = ref('powerx');
+const datasetsVisited = ref(false), datasetRevision = ref(0), datasetRefresh = ref(0);
 const archivesVisited = ref(false), databaseRetentionVisited = ref(false), databaseMaintenanceVisited = ref(false), databaseTablesVisited = ref(false);
 const draftsVisited = ref(false), historyVisited = ref(false), databaseOpen = ref(false), scopeInfoOpen = ref(false);
 const cleanupVisited = ref(false), cleanupRevision = ref(0), runtimeVisited = ref(false), runtimeRevision = ref(0);
@@ -127,19 +132,22 @@ function syncStoredArchiveAttention() {
 watch([() => props.allowed, () => props.identityKey], syncStoredArchiveAttention);
 onMounted(() => { syncStoredArchiveAttention(); window.addEventListener(AUTH_SESSION_EVENT, syncStoredArchiveAttention); window.addEventListener(ARCHIVE_RUN_REQUEST_EVENT, syncStoredArchiveAttention); window.addEventListener(ARCHIVE_DISPOSITION_EVENT, syncStoredArchiveAttention); window.addEventListener(ARCHIVE_COMMAND_CONFIRMATION_EVENT, syncStoredArchiveAttention); window.addEventListener('storage', syncStoredArchiveAttention); });
 onBeforeUnmount(() => { window.removeEventListener(AUTH_SESSION_EVENT, syncStoredArchiveAttention); window.removeEventListener(ARCHIVE_RUN_REQUEST_EVENT, syncStoredArchiveAttention); window.removeEventListener(ARCHIVE_DISPOSITION_EVENT, syncStoredArchiveAttention); window.removeEventListener(ARCHIVE_COMMAND_CONFIRMATION_EVENT, syncStoredArchiveAttention); window.removeEventListener('storage', syncStoredArchiveAttention); });
-const sections = computed(() => ['overview', 'databaseTables', 'policies', 'automation', 'archives', 'databaseRetention', 'databaseMaintenance', 'history', 'cleanup', 'alerts'].map(value => ({ value, label: t(`storageGov.${value}`) })));
+const sections = computed(() => ['overview', 'datasets', 'databaseTables', 'policies', 'automation', 'archives', 'databaseRetention', 'databaseMaintenance', 'history', 'cleanup', 'alerts'].map(value => ({ value, label: t(value === 'datasets' ? 'storageGov.datasets.title' : `storageGov.${value}`) })));
 const scopeLabel = (value: string) => ['dev', 'test', 'staging', 'prod', 'shared'].includes(value) ? t(`storageGov.scopes.${value}`) : value;
 const scopeOptions = computed(() => [{ value: 'all', label: t('storageGov.allResources') }, ...Array.from(new Set(overview.value?.resources.filter(r => r.scope !== 'shared').map(r => r.scope) || [])).map(value => ({ value, label: scopeLabel(value) }))]);
 const visibleResources = computed(() => (overview.value?.resources || []).filter(r => overviewView.value === 'disk' ? r.scope === 'shared' : r.scope !== 'shared' && (scope.value === 'all' || r.scope === scope.value)));
 const capacityRisk = computed(() => overview.value?.alerts?.some(a => a.level === 'warning' || a.level === 'critical'));
 const safetyRisk = computed(() => overview.value?.alerts?.some(a => te(`storageGov.tableMonitor.problems.${a.code}`)));
 const alertMessage = (code: string) => t(te(`storageGov.tableMonitor.problems.${code}`) ? `storageGov.tableMonitor.problems.${code}` : `storageGov.risks.${code}`);
-watch(section, value => { if (value === 'databaseTables') databaseTablesVisited.value = true; if (value === 'databaseRetention') databaseRetentionVisited.value = true; if (value === 'databaseMaintenance') databaseMaintenanceVisited.value = true; if (value === 'archives') archivesVisited.value = true; if (value === 'history') historyVisited.value = true; if (value === 'policies') draftsVisited.value = true; if (value === 'cleanup') cleanupVisited.value = true; if (value === 'automation') runtimeVisited.value = true; });
+watch(section, value => { if (value === 'datasets') datasetsVisited.value = true; if (value === 'databaseTables') databaseTablesVisited.value = true; if (value === 'databaseRetention') databaseRetentionVisited.value = true; if (value === 'databaseMaintenance') databaseMaintenanceVisited.value = true; if (value === 'archives') archivesVisited.value = true; if (value === 'history') historyVisited.value = true; if (value === 'policies') draftsVisited.value = true; if (value === 'cleanup') cleanupVisited.value = true; if (value === 'automation') runtimeVisited.value = true; });
 const metrics = computed(() => ['total_bytes', 'used_bytes', 'available_bytes', 'reserved_bytes'].map(key => ({ key, label: t(`storageGov.metrics.${key}`), value: overview.value?.filesystem[key as keyof StorageOverview['filesystem']] as number | null | undefined })));
-const stream = useStorageGovernanceEvents(computed(() => props.allowed), signal => api.runtimeEvents(signal), () => { runtimeRevision.value++; void load(); }, computed(() => props.identityKey));
+const stream = useStorageGovernanceEvents(computed(() => props.allowed), signal => api.runtimeEvents(signal), (reason) => {
+  if (!reason || reason.startsWith('dataset_')) datasetRevision.value++;
+  if (reason !== 'dataset_preview_changed') { runtimeRevision.value++; void load(); }
+}, computed(() => props.identityKey));
 const message = (e: unknown) => e instanceof Error ? e.message : t('storageGov.requestFailed');
 
-function refreshCurrent() { void load(); if (section.value === 'databaseTables') runtimeRevision.value++; }
+function refreshCurrent() { void load(); if (section.value === 'databaseTables') runtimeRevision.value++; if (section.value === 'datasets') datasetRefresh.value++; }
 
 async function load() {
   if (!props.allowed) return;
@@ -154,7 +162,7 @@ watch([() => props.allowed, () => props.identityKey], ([allowed, identity], [pre
   if (allowed === previousAllowed && identity === previousIdentity) return;
   generation++; controller?.abort();
   runtimeNavigation.value = undefined; overview.value = null; error.value = ''; loading.value = false; scope.value = 'all'; overviewView.value = 'powerx';
-  archivesVisited.value = false; databaseRetentionVisited.value = false; databaseMaintenanceVisited.value = false; databaseTablesVisited.value = false; draftsVisited.value = false; historyVisited.value = false; cleanupVisited.value = false; runtimeVisited.value = false; cleanupRevision.value = 0; databaseOpen.value = false; scopeInfoOpen.value = false; section.value = 'overview';
+  datasetsVisited.value = false; archivesVisited.value = false; databaseRetentionVisited.value = false; databaseMaintenanceVisited.value = false; databaseTablesVisited.value = false; draftsVisited.value = false; historyVisited.value = false; cleanupVisited.value = false; runtimeVisited.value = false; cleanupRevision.value = 0; databaseOpen.value = false; scopeInfoOpen.value = false; section.value = 'overview';
   if (props.allowed) void load();
 }, { immediate: true });
 onBeforeUnmount(() => { generation++; controller?.abort(); clearTimeout(expiryTimer); });

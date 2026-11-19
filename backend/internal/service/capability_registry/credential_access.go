@@ -75,35 +75,53 @@ func (s *GrantStatusService) CurrentAccess(ctx context.Context) (CredentialAcces
 		if c.Issuer != "powerx-sts" || !grantStatusContains(c.Audience, "powerx:api") || c.PluginID == "" || c.Subject == "" || c.ExpiresAt == nil || !time.Now().Before(c.ExpiresAt.Time) {
 			return result, &DirectGrantError{401}
 		}
-		var row setting.PluginInstanceConfig
-		e = s.db.WithContext(ctx).Where("tenant_uuid = ? AND plugin_id = ? AND key = ? AND enabled = ?", tenant, c.PluginID, "auth.credentials", true).First(&row).Error
-		if errors.Is(e, gorm.ErrRecordNotFound) {
-			return result, &DirectGrantError{403}
-		}
-		if e != nil {
-			return result, &DirectGrantError{503}
-		}
-		var credential struct {
-			ClientID  string   `json:"client_id"`
-			Allowed   []string `json:"allowed_capabilities"`
-			ExpiresAt *int64   `json:"expires_at"`
-		}
-		if json.Unmarshal(row.ValueJSON, &credential) != nil {
-			return result, &DirectGrantError{503}
-		}
-		if credential.ClientID == "" || c.Subject != "client:"+credential.ClientID {
-			return result, &DirectGrantError{401}
-		}
-		if credential.ExpiresAt != nil && *credential.ExpiresAt <= time.Now().Unix() {
-			return result, &DirectGrantError{401}
-		}
-		result.Subject = "sts:" + c.PluginID + ":" + c.Subject
-		result.PluginOwners = []string{c.PluginID}
-		allowed = map[string]bool{}
-		for _, id := range credential.Allowed {
-			allowed[id] = true
-		}
+		return s.pluginSTSAccess(ctx, tenant, c.PluginID, c.Subject)
 	}
+	return s.applyCredentialGrants(ctx, tenant, result, allowed)
+}
+
+// PluginSTSAccess resolves the target of a Core-originated dispatch from the
+// enabled tenant installation. It is not an authentication entry point.
+func (s *GrantStatusService) PluginSTSAccess(ctx context.Context, tenant, plugin string) (CredentialAccess, error) {
+	return s.pluginSTSAccess(ctx, tenant, plugin, "")
+}
+
+func (s *GrantStatusService) pluginSTSAccess(ctx context.Context, tenant, plugin, expectedSubject string) (CredentialAccess, error) {
+	result := CredentialAccess{Granted: map[string]bool{}}
+	if s == nil || s.db == nil {
+		return result, &DirectGrantError{503}
+	}
+	var row setting.PluginInstanceConfig
+	e := s.db.WithContext(ctx).Where("tenant_uuid = ? AND plugin_id = ? AND key = ? AND enabled = ?", tenant, plugin, "auth.credentials", true).First(&row).Error
+	if errors.Is(e, gorm.ErrRecordNotFound) {
+		return result, &DirectGrantError{403}
+	}
+	if e != nil {
+		return result, &DirectGrantError{503}
+	}
+	var credential struct {
+		ClientID  string   `json:"client_id"`
+		Allowed   []string `json:"allowed_capabilities"`
+		ExpiresAt *int64   `json:"expires_at"`
+	}
+	if json.Unmarshal(row.ValueJSON, &credential) != nil {
+		return result, &DirectGrantError{503}
+	}
+	subject := "client:" + credential.ClientID
+	if credential.ClientID == "" || expectedSubject != "" && expectedSubject != subject ||
+		credential.ExpiresAt != nil && *credential.ExpiresAt <= time.Now().Unix() {
+		return result, &DirectGrantError{401}
+	}
+	result.Subject = "sts:" + plugin + ":" + subject
+	result.PluginOwners = []string{plugin}
+	allowed := make(map[string]bool, len(credential.Allowed))
+	for _, id := range credential.Allowed {
+		allowed[id] = true
+	}
+	return s.applyCredentialGrants(ctx, tenant, result, allowed)
+}
+
+func (s *GrantStatusService) applyCredentialGrants(ctx context.Context, tenant string, result CredentialAccess, allowed map[string]bool) (CredentialAccess, error) {
 	ids := make([]string, 0, len(allowed))
 	for id := range allowed {
 		ids = append(ids, id)

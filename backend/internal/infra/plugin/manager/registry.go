@@ -230,6 +230,7 @@ func (r *JSONRegistry) Get(ctx context.Context, id string) (plugin_mgr.Plugin, b
 	}
 	rr := rec.Versions[verKey]
 	return plugin_mgr.Plugin{
+		DataLifecycle:             plugin_mgr.CloneDatasetObservationSpecs(rr.Manifest.DataLifecycle),
 		NotificationPresentations: append([]plugin_mgr.NotificationPresentationSpec(nil), rr.Manifest.NotificationPresentations...),
 		Provider:                  rr.Manifest.Provider,
 		Revision:                  rr.Revision,
@@ -288,6 +289,7 @@ func (r *JSONRegistry) GetVersion(ctx context.Context, id, version string) (plug
 		return plugin_mgr.Plugin{}, false
 	}
 	return plugin_mgr.Plugin{
+		DataLifecycle:             plugin_mgr.CloneDatasetObservationSpecs(vr.Manifest.DataLifecycle),
 		NotificationPresentations: append([]plugin_mgr.NotificationPresentationSpec(nil), vr.Manifest.NotificationPresentations...),
 		Provider:                  vr.Manifest.Provider,
 		Revision:                  vr.Revision,

@@ -1,0 +1,71 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.storage.datasets.register
+    module: storage
+    title: Register plugin storage dataset
+    description: Admit a dataset declaration pinned to the calling STS plugin's verified active installation.
+    title_i18n: {zh-CN: 登记插件数据集, en: Register plugin storage dataset}
+    description_i18n: {zh-CN: 登记当前 STS 插件已安装版本中声明的数据集。, en: Register a dataset declaration from the calling plugin's active installation.}
+    permission_code: corex.storage.datasets:register
+    agent_usable: false
+    risk_level: medium
+    categories: [storage, governance]
+    intents: [storage.datasets.register]
+    tool_scopes: [storage.datasets.register]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/plugin-dataset-lifecycle-review.md, specs/027-monitor-center/contracts/plugin-datasets.openapi.yaml]
+    protocols:
+      - channel: core_internal
+        endpoint: core://storage-governance/datasets
+        method: INVOKE
+        schema_ref: specs/027-monitor-center/contracts/plugin-dataset-host.v1.schema.json#/$defs/RegisterOperation
+        auth_type: sts
+        actor_context: service_actor
+        resource_scope: tenant
+        tool_scope: storage.datasets.register
+  - capability_id: com.corex.storage.datasets.preview_worker
+    module: storage
+    title: Execute plugin storage dataset preview
+    description: Claim and report a Core-dispatched read-only preview under an active TaskBus lease.
+    title_i18n: {zh-CN: 执行插件数据集预览, en: Execute plugin storage dataset preview}
+    description_i18n: {zh-CN: 凭正式任务租约领取本插件预览并上报聚合结果。, en: Claim a Core-dispatched preview and submit grouped counts under its active delivery.}
+    permission_code: corex.storage.datasets:preview_worker
+    agent_usable: false
+    risk_level: medium
+    categories: [storage, governance]
+    intents: [storage.datasets.preview]
+    tool_scopes: [storage.datasets.preview]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/plugin-dataset-lifecycle-review.md, specs/027-monitor-center/contracts/plugin-datasets.openapi.yaml]
+    protocols:
+      - channel: core_internal
+        endpoint: core://storage-governance/datasets
+        method: INVOKE
+        schema_ref: specs/027-monitor-center/contracts/plugin-dataset-host.v1.schema.json#/$defs/PreviewWorkerOperation
+        auth_type: sts
+        actor_context: service_actor
+        resource_scope: tenant
+        tool_scope: storage.datasets.preview
+  - capability_id: com.corex.storage.datasets.execution_worker
+    module: storage
+    title: Execute a bounded plugin storage batch
+    description: Claim Core-authorized dataset work and reconcile the durable source receipt or verified archive.
+    title_i18n: {zh-CN: 执行插件数据集批次, en: Execute a bounded plugin storage batch}
+    description_i18n: {zh-CN: 领取底座授权的有界批次并核对源端回执或已校验归档。, en: Claim a Core-authorized batch and reconcile its durable source receipt or verified archive.}
+    permission_code: corex.storage.datasets:execution_worker
+    agent_usable: false
+    risk_level: high
+    categories: [storage, governance]
+    intents: [storage.datasets.execution]
+    tool_scopes: [storage.datasets.execution]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/plugin-dataset-execution.md]
+    protocols:
+      - channel: core_internal
+        endpoint: core://storage-governance/datasets
+        method: INVOKE
+        schema_ref: specs/027-monitor-center/contracts/plugin-dataset-execution.v1.schema.json#/$defs/Operation
+        auth_type: sts
+        actor_context: service_actor
+        resource_scope: tenant
+        tool_scope: storage.datasets.execution

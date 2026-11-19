@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PowerX 插件数据集 Host 合同评审稿",
+  "description": "根类型校验 Framework 发往 Core 的操作。插件包声明、返回类型与 TaskBus 通知通过对应的 $defs 单独校验。",
+  "oneOf": [
+    {"$ref": "#/$defs/RegisterOperation"},
+    {"$ref": "#/$defs/ClaimPreviewOperation"},
+    {"$ref": "#/$defs/ReportPreviewOperation"}
+  ],
+  "$defs": {
+    "Uuid": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "format": "uuid",
+      "not": {"const": "00000000-0000-0000-0000-000000000000"}
+    },
+    "Timestamp": {"type": "string", "format": "date-time"},
+    "Key": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$"},
+    "Revision": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "Digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "RetentionDays": {"type": "integer", "minimum": 1, "maximum": 3650},
+    "RetentionBounds": {
+      "type": "object", "additionalProperties": false,
+      "description": "服务端额外校验 minimum_days <= suggested_days <= maximum_days。",
+      "required": ["minimum_days", "maximum_days", "suggested_days"],
+      "properties": {
+        "minimum_days": {"$ref": "#/$defs/RetentionDays"},
+        "maximum_days": {"$ref": "#/$defs/RetentionDays"},
+        "suggested_days": {"$ref": "#/$defs/RetentionDays"}
+      }
+    },
+    "Declaration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dataset_key", "display_name_i18n", "contract_version", "schema_contract_version", "source_binding_ref", "tenant_scope", "adapter_key", "adapter_version", "allowed_actions"],
+      "properties": {
+        "dataset_key": {"$ref": "#/$defs/Key"},
+        "display_name_i18n": {
+          "type": "object", "required": ["zh-CN", "en"],
+          "additionalProperties": {"type": "string", "minLength": 1, "maxLength": 128}
+        },
+        "contract_version": {"$ref": "#/$defs/Revision"},
+        "schema_contract_version": {"$ref": "#/$defs/Revision"},
+        "source_binding_ref": {"$ref": "#/$defs/Key"},
+        "tenant_scope": {"const": "tenant"},
+        "adapter_key": {"$ref": "#/$defs/Key"},
+        "adapter_version": {"$ref": "#/$defs/Revision"},
+        "allowed_actions": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"enum": ["observe", "preview", "delete", "archive"]},
+          "contains": {"const": "observe"}
+        },
+        "retention_bounds": {"$ref": "#/$defs/RetentionBounds"},
+        "archive_before_delete": {"type": "boolean"}
+      },
+      "if": {"properties": {"allowed_actions": {"contains": {"const": "preview"}}}},
+      "then": {"required": ["retention_bounds"]},
+      "else": {"not": {"anyOf": [
+        {"required": ["retention_bounds"]},
+        {"properties": {"allowed_actions": {"contains": {"enum": ["delete", "archive"]}}}}
+      ]}},
+      "allOf": [
+        {
+          "if": {"required": ["archive_before_delete"], "properties": {"archive_before_delete": {"const": true}}},
+          "then": {"properties": {"allowed_actions": {"allOf": [{"contains": {"const": "archive"}}, {"contains": {"const": "delete"}}]}}}
+        }
+      ]
+    },
+    "ContractVersion": {"const": "powerx.storage-dataset-host/v1"},
+    "RegisterOperation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract_version", "operation", "input"],
+      "properties": {
+        "contract_version": {"$ref": "#/$defs/ContractVersion"},
+        "operation": {"const": "register"},
+        "input": {
+          "type": "object", "additionalProperties": false,
+          "required": ["request_uuid", "dataset_key", "definition_version", "definition_digest", "source_binding_ref"],
+          "properties": {
+            "request_uuid": {"$ref": "#/$defs/Uuid"},
+            "dataset_key": {"$ref": "#/$defs/Key"},
+            "definition_version": {"$ref": "#/$defs/Revision"},
+            "definition_digest": {"$ref": "#/$defs/Digest"},
+            "source_binding_ref": {"$ref": "#/$defs/Key"}
+          }
+        }
+      }
+    },
+    "RegisterResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["request_uuid", "dataset_uuid", "acceptance_revision", "registration_state"],
+      "properties": {
+        "request_uuid": {"$ref": "#/$defs/Uuid"},
+        "dataset_uuid": {"$ref": "#/$defs/Uuid"},
+        "acceptance_revision": {"$ref": "#/$defs/Revision"},
+        "registration_state": {"enum": ["pending_validation", "accepted", "needs_revalidation", "retired"]},
+        "status_reason": {"$ref": "#/$defs/Key"}
+      }
+    },
+    "PreviewTaskNotice": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract_version", "request_uuid"],
+      "properties": {
+        "contract_version": {"$ref": "#/$defs/ContractVersion"},
+        "request_uuid": {"$ref": "#/$defs/Uuid"}
+      }
+    },
+    "PreviewWorkerOperation": {
+      "oneOf": [{"$ref": "#/$defs/ClaimPreviewOperation"}, {"$ref": "#/$defs/ReportPreviewOperation"}]
+    },
+    "ClaimPreviewOperation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract_version", "operation", "input"],
+      "properties": {
+        "contract_version": {"$ref": "#/$defs/ContractVersion"},
+        "operation": {"const": "claim_preview"},
+        "input": {
+          "type": "object", "additionalProperties": false,
+          "required": ["request_uuid", "receipt_uuid", "fence"],
+          "properties": {
+            "request_uuid": {"$ref": "#/$defs/Uuid"},
+            "receipt_uuid": {"$ref": "#/$defs/Uuid"},
+            "fence": {"$ref": "#/$defs/Revision"}
+          }
+        }
+      }
+    },
+    "ClaimPreviewResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["request_uuid", "dataset_uuid", "tenant_uuid", "source_binding_uuid", "source_fingerprint", "acceptance_revision", "definition_digest", "schema_contract_version", "adapter_key", "adapter_version", "cutoff_at", "deadline_at", "max_examined"],
+      "properties": {
+        "request_uuid": {"$ref": "#/$defs/Uuid"},
+        "dataset_uuid": {"$ref": "#/$defs/Uuid"},
+        "tenant_uuid": {"$ref": "#/$defs/Uuid"},
+        "source_binding_uuid": {"$ref": "#/$defs/Uuid"},
+        "source_fingerprint": {"$ref": "#/$defs/Digest"},
+        "acceptance_revision": {"$ref": "#/$defs/Revision"},
+        "definition_digest": {"$ref": "#/$defs/Digest"},
+        "schema_contract_version": {"$ref": "#/$defs/Revision"},
+        "adapter_key": {"$ref": "#/$defs/Key"},
+        "adapter_version": {"$ref": "#/$defs/Revision"},
+        "cutoff_at": {"$ref": "#/$defs/Timestamp"},
+        "deadline_at": {"$ref": "#/$defs/Timestamp"},
+        "max_examined": {"type": "integer", "minimum": 1, "maximum": 2048}
+      }
+    },
+    "PreviewCounts": {
+      "type": "object", "additionalProperties": false,
+      "description": "服务端核对原因唯一性、候选及保护合计不超过 examined_count，且 examined_count 不超过领取时的 max_examined。",
+      "required": ["coverage", "examined_count", "candidate_count", "protected_by_reason"],
+      "properties": {
+        "coverage": {"enum": ["complete", "bounded"]},
+        "examined_count": {"type": "integer", "minimum": 0, "maximum": 2048},
+        "candidate_count": {"type": "integer", "minimum": 0, "maximum": 2048},
+        "protected_by_reason": {
+          "type": "array", "maxItems": 7, "uniqueItems": true,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["reason", "count"],
+            "properties": {
+              "reason": {"enum": ["referenced", "active", "retryable", "unknown_eligibility", "retained_evidence", "latest_effective", "incomplete_record"]},
+              "count": {"type": "integer", "minimum": 1, "maximum": 2048}
+            }
+          }
+        }
+      }
+    },
+    "ReportPreviewOperation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract_version", "operation", "input"],
+      "properties": {
+        "contract_version": {"$ref": "#/$defs/ContractVersion"},
+        "operation": {"const": "report_preview"},
+        "input": {
+          "type": "object", "additionalProperties": false,
+          "required": ["request_uuid", "receipt_uuid", "fence", "acceptance_revision", "outcome"],
+          "properties": {
+            "request_uuid": {"$ref": "#/$defs/Uuid"},
+            "receipt_uuid": {"$ref": "#/$defs/Uuid"},
+            "fence": {"$ref": "#/$defs/Revision"},
+            "acceptance_revision": {"$ref": "#/$defs/Revision"},
+            "outcome": {"enum": ["completed", "failed"]},
+            "result": {"$ref": "#/$defs/PreviewCounts"},
+            "status_reason": {"enum": ["source_unavailable", "schema_mismatch", "adapter_unavailable", "scan_timeout", "protection_unverifiable"]}
+          },
+          "if": {"properties": {"outcome": {"const": "completed"}}},
+          "then": {"required": ["result"], "not": {"required": ["status_reason"]}},
+          "else": {"required": ["status_reason"], "not": {"required": ["result"]}}
+        }
+      }
+    },
+    "ReportPreviewResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["request_uuid", "state"],
+      "properties": {
+        "request_uuid": {"$ref": "#/$defs/Uuid"},
+        "state": {"enum": ["completed", "failed"]}
+      }
+    }
+  }
+}

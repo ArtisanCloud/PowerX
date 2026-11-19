@@ -83,7 +83,7 @@ func (s *RuntimeService) Apply(ctx context.Context, scope RuntimeScope, in Runti
 }
 func (s *RuntimeService) enqueue(ctx context.Context, scope RuntimeScope, in RuntimeRequest) (map[string]any, error) {
 	v := in.Message
-	if v == nil || v.TenantKey != scope.TenantUUID || !runtimeValidPart(v.ID, 128) || !runtimeValidPart(v.SubscriberID, 128) || !runtimeValidPart(v.IdempotencyKey, 255) || !runtimeValidPart(v.Topic, 255) || v.Attempt != 0 || v.Lease != nil {
+	if v == nil || v.TenantKey != scope.TenantUUID || !runtimeValidPart(v.ID, 128) || datasetTaskIDReserved(v.ID) || !runtimeValidPart(v.SubscriberID, 128) || !runtimeValidPart(v.IdempotencyKey, 255) || datasetTaskIDReserved(v.IdempotencyKey) || !runtimeValidPart(v.Topic, 255) || v.Attempt != 0 || v.Lease != nil {
 		return nil, runtimeError(400, "TASK_QUEUE_INVALID_ARGUMENT")
 	}
 	payload, err := base64.StdEncoding.Strict().DecodeString(v.PayloadBase64)
@@ -119,6 +119,13 @@ func (s *RuntimeService) enqueue(ctx context.Context, scope RuntimeScope, in Run
 func (s *RuntimeService) dequeue(ctx context.Context, scope RuntimeScope, in RuntimeRequest) (map[string]any, error) {
 	if !runtimeValidPart(in.SubscriberID, 128) || !runtimeValidPart(in.WorkerID, 128) || in.MaxItems < 1 || in.MaxItems > 100 || in.WaitTimeoutMS < 1 || in.WaitTimeoutMS > 30000 {
 		return nil, runtimeError(400, "TASK_QUEUE_INVALID_ARGUMENT")
+	}
+	for _, channel := range []datasetTaskChannel{datasetPreview, datasetExecution} {
+		if in.SubscriberID == channel.subscriber {
+			if err := s.recoverDatasetTasks(ctx, scope, channel); err != nil {
+				return nil, err
+			}
+		}
 	}
 	items, err := s.driver.Dequeue(ctx, scope.TenantUUID, runtimeSubscriber(scope, in.SubscriberID), "runtime_host_v2", in.WorkerID, int64(in.MaxItems), time.Duration(in.WaitTimeoutMS)*time.Millisecond)
 	if err != nil {
@@ -175,6 +182,14 @@ func (s *RuntimeService) settle(ctx context.Context, scope RuntimeScope, in Runt
 	var item event_bus.StreamTaskDelivery
 	if json.Unmarshal([]byte(metadata(row)[runtimeDeliveryKey]), &item) != nil || item.Message.ID != in.MessageID || item.Message.TenantKey != scope.TenantUUID || item.Message.SubscriberID != runtimeSubscriber(scope, in.SubscriberID) {
 		return nil, event_bus.ErrLeaseStale
+	}
+	if (row.Source == datasetPreview.source || row.Source == datasetExecution.source) && in.Operation == "ack" {
+		if row.Status != m.TaskHistoryStatusCompleted {
+			return nil, runtimeError(409, "DATASET_TASK_RESULT_REQUIRED")
+		}
+		if err := s.driver.Ack(ctx, item); err != nil && !errors.Is(err, event_bus.ErrLeaseStale) {
+			return nil, err
+		}
 	}
 	if in.Operation == "ack" && terminal(row.Status) {
 		return map[string]any{"confirmed": true, "receipt_uuid": in.ReceiptUUID, "already_settled": true}, nil

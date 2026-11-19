@@ -187,12 +187,13 @@ const (
 
 // 运行期模型（用于对外返回）
 type Plugin struct {
-	NotificationPresentations []NotificationPresentationSpec `json:"notification_presentations,omitempty"`
-	Provider                  ProviderIdentity               `json:"provider"`
-	Revision                  string                         `json:"revision"`
-	ID                        string                         `json:"id"`
-	Version                   string                         `json:"version"`
-	State                     PluginState                    `json:"state"`
+	DataLifecycle             map[string]DatasetObservationSpec `json:"-"`
+	NotificationPresentations []NotificationPresentationSpec    `json:"notification_presentations,omitempty"`
+	Provider                  ProviderIdentity                  `json:"provider"`
+	Revision                  string                            `json:"revision"`
+	ID                        string                            `json:"id"`
+	Version                   string                            `json:"version"`
+	State                     PluginState                       `json:"state"`
 
 	// 这些来自 manifest：
 	Name                 string       `json:"name"`

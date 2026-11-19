@@ -118,7 +118,7 @@ func (m *versionedS3) serve(w http.ResponseWriter, r *http.Request) {
 			o := m.objects[i]
 			if o.key == key && (q.Get("versionId") == "" || q.Get("versionId") == o.version) {
 				data := o.body
-				if m.corrupt && strings.Contains(key, "/objects/") {
+				if m.corrupt && (strings.Contains(key, "/objects/") || strings.Contains(key, "/_plugin-datasets/")) {
 					data = bytes.Repeat([]byte("!"), len(data))
 				}
 				w.Header().Set("x-amz-version-id", o.version)

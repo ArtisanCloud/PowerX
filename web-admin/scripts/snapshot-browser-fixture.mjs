@@ -138,10 +138,16 @@ const backend = createServer(async (request, response) => {
   }
   if (url.pathname === "/api/v1/__snapshot_browser/state") {
     if (request.method === "DELETE") reset();
-    json(response, 200, { requests, overview, eventConnections: subscribers.size, progressConnections: [...jobSubscribers.values()].reduce((count,list)=>count+list.size,0) });
+    json(response, 200, { requests, overview, eventConnections: subscribers.size, storageEventConnections: storageSubscribers.size, progressConnections: [...jobSubscribers.values()].reduce((count,list)=>count+list.size,0) });
     return;
   }
-  if(url.pathname === "/api/v1/__snapshot_browser/storage-push") { for(const target of storageSubscribers)target.write('event: change\ndata: {"resources":["storage"]}\n\n');json(response,200,{ok:true,connections:storageSubscribers.size});return; }
+  if (url.pathname === "/api/v1/__snapshot_browser/storage-push") {
+    const reason = url.searchParams.get("reason");
+    const event = JSON.stringify(reason ? { resources: ["storage"], reason } : { resources: ["storage"] });
+    for (const target of storageSubscribers) target.write(`event: change\ndata: ${event}\n\n`);
+    json(response, 200, { ok: true, connections: storageSubscribers.size });
+    return;
+  }
   if(url.pathname === "/api/v1/__snapshot_browser/managed") {recovery={configured:true,online:true,generation:1,active_environment_id:"source",targets:[{id:"formal",label:"本站正式候选",environment:"dev",mode:"formal",allow_overwrite:true,allow_online_data:true}],jobs:[],progress_tokens:{}};overview.snapshots[0].recovery_supported=true;json(response,200,{ok:true});return;}
   if(url.pathname==='/api/v1/__snapshot_browser/empty-snapshots'){overview.snapshots=[];notify('snapshots');json(response,200,{ok:true});return;}
   if(url.pathname==='/api/v1/__snapshot_browser/empty-policies'){emptyPolicies=true;json(response,200,{ok:true});return;}

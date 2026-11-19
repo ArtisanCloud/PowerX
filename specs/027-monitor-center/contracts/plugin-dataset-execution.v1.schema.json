@@ -1,0 +1,402 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PowerX dataset execution worker v1",
+  "$ref": "#/$defs/Operation",
+  "$defs": {
+    "Uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+      "not": {
+        "const": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "TaskNotice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "request_uuid"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": "powerx.storage-dataset-execution/v1"
+        },
+        "request_uuid": {
+          "$ref": "#/$defs/Uuid"
+        }
+      }
+    },
+    "Claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_uuid",
+        "receipt_uuid",
+        "fence"
+      ],
+      "properties": {
+        "request_uuid": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "receipt_uuid": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "fence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "Reconcile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_uuid"
+      ],
+      "properties": {
+        "request_uuid": {
+          "$ref": "#/$defs/Uuid"
+        }
+      }
+    },
+    "Report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_uuid",
+        "grant_uuid",
+        "source_receipt_uuid",
+        "source_receipt_digest",
+        "outcome",
+        "affected_count",
+        "source_sealed_at"
+      ],
+      "properties": {
+        "request_uuid": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "grant_uuid": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "source_receipt_uuid": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "source_receipt_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "outcome": {
+          "enum": [
+            "committed",
+            "aborted"
+          ]
+        },
+        "affected_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "source_sealed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Source database time at the final authorization check for a committed result, or when an aborted result was sealed. For committed results it must be within [issued_at, deadline_at). It is not the physical database commit time."
+        }
+      },
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "aborted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "affected_count": {
+            "const": 0
+          }
+        }
+      }
+    },
+    "ArchiveSubmission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report",
+        "archive_base64"
+      ],
+      "properties": {
+        "report": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/Report"
+            },
+            {
+              "properties": {
+                "outcome": {
+                  "const": "committed"
+                },
+                "affected_count": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        "archive_base64": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "maxLength": 349528
+        }
+      }
+    },
+    "Grant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_uuid",
+        "dataset_uuid",
+        "tenant_uuid",
+        "source_binding_uuid",
+        "source_fingerprint",
+        "acceptance_revision",
+        "definition_digest",
+        "schema_contract_version",
+        "adapter_key",
+        "adapter_version",
+        "cutoff_at",
+        "deadline_at",
+        "max_examined",
+        "grant_uuid",
+        "action",
+        "policy_revision",
+        "issued_at",
+        "max_affected"
+      ],
+      "properties": {
+        "request_uuid": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "dataset_uuid": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "tenant_uuid": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "source_binding_uuid": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "source_fingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "acceptance_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "definition_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "schema_contract_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "adapter_key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        },
+        "adapter_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "cutoff_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "deadline_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "max_examined": {
+          "const": 2048
+        },
+        "grant_uuid": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "action": {
+          "enum": [
+            "delete",
+            "archive"
+          ]
+        },
+        "policy_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "max_affected": {
+          "const": 128
+        }
+      }
+    },
+    "Operation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contract_version",
+            "operation",
+            "input"
+          ],
+          "properties": {
+            "contract_version": {
+              "const": "powerx.storage-dataset-execution/v1"
+            },
+            "operation": {
+              "const": "claim_execution"
+            },
+            "input": {
+              "$ref": "#/$defs/Claim"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contract_version",
+            "operation",
+            "input"
+          ],
+          "properties": {
+            "contract_version": {
+              "const": "powerx.storage-dataset-execution/v1"
+            },
+            "operation": {
+              "const": "reconcile_execution"
+            },
+            "input": {
+              "$ref": "#/$defs/Reconcile"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contract_version",
+            "operation",
+            "input"
+          ],
+          "properties": {
+            "contract_version": {
+              "const": "powerx.storage-dataset-execution/v1"
+            },
+            "operation": {
+              "const": "report_execution"
+            },
+            "input": {
+              "$ref": "#/$defs/Report"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contract_version",
+            "operation",
+            "input"
+          ],
+          "properties": {
+            "contract_version": {
+              "const": "powerx.storage-dataset-execution/v1"
+            },
+            "operation": {
+              "const": "archive_execution"
+            },
+            "input": {
+              "$ref": "#/$defs/ArchiveSubmission"
+            }
+          }
+        }
+      ]
+    },
+    "ClaimResult": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "grant"
+          ],
+          "properties": {
+            "state": {
+              "const": "authorized"
+            },
+            "grant": {
+              "$ref": "#/$defs/Grant"
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/ReconcileResult"
+        }
+      ]
+    },
+    "ReconcileResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "request_uuid",
+        "grant_uuid"
+      ],
+      "properties": {
+        "state": {
+          "const": "reconcile_only"
+        },
+        "request_uuid": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "grant_uuid": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "expired_grant": {
+          "$ref": "#/$defs/Grant",
+          "description": "Original immutable and expired source scope. May only be used to recover a terminal receipt or seal an aborted result with zero affected records; it grants no business writes."
+        }
+      }
+    },
+    "ReportResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "request_uuid"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "committed",
+            "aborted"
+          ]
+        },
+        "request_uuid": {
+          "$ref": "#/$defs/Uuid"
+        }
+      }
+    }
+  }
+}
