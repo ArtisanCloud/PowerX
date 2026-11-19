@@ -64,6 +64,7 @@ type DatabaseMaintenanceRun struct {
 	Session                   *repo.MaintenanceSession  `json:"session,omitempty"`
 	Steps                     []DatabaseMaintenanceStep `json:"steps"`
 	Problem                   string                    `json:"problem,omitempty"`
+	WALStop                   *repo.IncrementalWALStop  `json:"wal_stop,omitempty"`
 	CancelledBy               uint64                    `json:"cancelled_by,omitempty"`
 	ReviewedBy                uint64                    `json:"reviewed_by,omitempty"`
 	FilesystemAvailableBefore *int64                    `json:"filesystem_available_before,omitempty"`

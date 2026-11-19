@@ -7,6 +7,14 @@
     </div>
     <UAlert v-if="run.state === 'unconfirmed'" color="warning" :title="t('storageGov.dbMaintenance.unknownResult')" :description="t('storageGov.dbMaintenance.unknownHint')" />
     <p v-if="run.problem" role="alert" class="text-sm text-warning">{{ problemText(run.problem) }}</p>
+    <p v-if="run.wal_stop" class="text-sm text-muted">
+      {{ t('storageGov.dbMaintenance.walStop.detail', {
+        phase: t('storageGov.dbMaintenance.walStop.' + run.wal_stop.phase),
+        metric: t('storageGov.dbMaintenance.walStop.' + run.wal_stop.metric),
+        observed: bytes(run.wal_stop.observed_bytes),
+        limit: bytes(run.wal_stop.limit_bytes),
+      }) }}
+    </p>
     <ol v-if="run.steps.length" class="space-y-2" :aria-label="t('storageGov.dbMaintenance.progress')">
       <li v-for="step in run.steps" :key="step.table_id" class="rounded-lg border border-default p-3 text-sm">
         <div class="flex flex-wrap justify-between gap-2">

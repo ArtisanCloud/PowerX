@@ -290,13 +290,26 @@ FROM generate_series(1,160000) n`).Error)
 		t.Fatal("notification table measurement missing")
 		return 0
 	}
-	load := pgx.Identifier{coremodel.PowerXSchema, "wal_load_fixture"}.Sanitize()
-	require.NoError(t, db.Exec("CREATE TABLE "+load+" (payload text NOT NULL) WITH (autovacuum_enabled=false); ALTER TABLE "+load+" ALTER COLUMN payload SET STORAGE PLAIN").Error)
-	// Make recycled WAL available before generating a burst. The production
-	// worker observes natural recycling and never forces a checkpoint.
+	// Seed recycled segments before the run. Only the owned test PostgreSQL
+	// cluster receives the workload and checkpoint.
+	emitWAL := func(megabytes int) {
+		t.Helper()
+		require.NoError(t, db.Exec(`SELECT count(pg_logical_emit_message(false,'powerx-test-only',repeat('w',1048576)))
+FROM generate_series(1,?)`, megabytes).Error)
+	}
+	emitWAL(320)
 	require.NoError(t, db.Exec("CHECKPOINT").Error)
-	var walStart string
-	require.NoError(t, db.Raw("SELECT pg_current_wal_insert_lsn()::text").Scan(&walStart).Error)
+
+	// Keep the first index cleanup long enough to observe the WAL workload
+	// while VACUUM is executing. Reopen the fixture's idle connections.
+	require.NoError(t, db.Exec("ALTER ROLE CURRENT_USER SET vacuum_cost_page_dirty=200").Error)
+	pool, e := db.DB()
+	require.NoError(t, e)
+	pool.SetMaxIdleConns(0)
+	pool.SetMaxIdleConns(4)
+	t.Cleanup(func() {
+		require.NoError(t, db.Exec("ALTER ROLE CURRENT_USER RESET vacuum_cost_page_dirty").Error)
+	})
 	preview, e := s.PreviewDatabaseMaintenance(ctx, input)
 	require.NoError(t, e)
 	require.EqualValues(t, 256<<20, preview.PeakBytes)
@@ -306,11 +319,18 @@ FROM generate_series(1,160000) n`).Error)
 	req.ExclusiveLockConfirmed = true
 	_, e = s.StartDatabaseMaintenanceRequest(ctx, req)
 	require.NoError(t, e)
+	var vacuumStart string
 	require.Eventually(t, func() bool {
-		run, readError := s.DatabaseMaintenanceRun(ctx, req.RequestID)
-		return readError == nil && run.State == "running" && len(run.Steps) == 1
-	}, 10*time.Second, 10*time.Millisecond)
-	require.NoError(t, db.Exec("INSERT INTO "+load+" SELECT repeat(md5(n::text),50) FROM generate_series(1,57000) n").Error)
+		return db.Raw(`SELECT pg_current_wal_insert_lsn()::text
+FROM pg_stat_progress_vacuum v JOIN pg_stat_activity a USING (pid)
+WHERE a.application_name=? AND v.phase IN ('vacuuming indexes','scanning heap')`,
+			"px.dbmaint."+req.RequestID).Scan(&vacuumStart).Error == nil && vacuumStart != ""
+	}, 20*time.Second, 10*time.Millisecond)
+	emitWAL(192)
+	var walBytes int64
+	require.NoError(t, db.Raw("SELECT pg_wal_lsn_diff(pg_current_wal_insert_lsn(), ?::pg_lsn)::bigint", vacuumStart).Scan(&walBytes).Error)
+	require.Greater(t, walBytes, int64(160<<20))
+	t.Logf("WAL generated after VACUUM started: %d bytes", walBytes)
 
 	var final DatabaseMaintenanceRun
 	require.Eventually(t, func() bool {
@@ -331,12 +351,6 @@ FROM generate_series(1,160000) n`).Error)
 	require.Equal(t, expected, digest())
 	require.Equal(t, auditBefore, maintenanceDataDigest(t, db, "capability_registry_invocation_traces"))
 	require.Equal(t, businessBefore, maintenanceDataDigest(t, db, "orders"))
-	var walBytes int64
-	require.NoError(t, db.Raw("SELECT pg_wal_lsn_diff(pg_current_wal_insert_lsn(), ?::pg_lsn)::bigint", walStart).Scan(&walBytes).Error)
-	require.Greater(t, walBytes, int64(96<<20))
-
-	t.Logf("WAL generated during bounded shrink: %d bytes", walBytes)
-
 	var amount int
 	require.NoError(t, db.Raw("SELECT amount FROM "+business+" WHERE id=901").Scan(&amount).Error)
 	require.Equal(t, 123, amount)

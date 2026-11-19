@@ -43,6 +43,24 @@ var (
 	ErrIncrementalNoReclaim   = errors.New("database_maintenance_incremental_no_reclaim")
 )
 
+// IncrementalWALStop records the protection measurement in the maintenance receipt.
+type IncrementalWALStop struct {
+	Phase         string `json:"phase"`
+	Metric        string `json:"metric"`
+	ObservedBytes int64  `json:"observed_bytes"`
+	LimitBytes    int64  `json:"limit_bytes"`
+}
+
+func (e *IncrementalWALStop) Error() string { return ErrIncrementalWAL.Error() }
+func (e *IncrementalWALStop) Unwrap() error { return ErrIncrementalWAL }
+
+func checkIncrementalWALFiles(phase string, measured, limit int64) error {
+	if measured >= limit {
+		return &IncrementalWALStop{Phase: phase, Metric: "wal_file_bytes", ObservedBytes: measured, LimitBytes: limit}
+	}
+	return nil
+}
+
 // ValidMaintenanceRequest checks mode and relation IDs, including recovered runs.
 func ValidMaintenanceRequest(mode string, ids []string) bool {
 	switch mode {
@@ -209,10 +227,18 @@ type incrementalWALSample struct {
 	fileBytes    int64
 }
 
+const incrementalWALFilesSQL = `SELECT COALESCE(sum(size),0)::bigint FROM pg_catalog.pg_ls_waldir()`
+
+func incrementalWALFiles(ctx context.Context, c incrementalQueryer) (int64, error) {
+	var bytes int64
+	e := c.QueryRowContext(ctx, incrementalWALFilesSQL).Scan(&bytes)
+	return bytes, e
+}
+
 func sampleIncrementalWAL(ctx context.Context, c incrementalQueryer, from string) (incrementalWALSample, error) {
 	var s incrementalWALSample
 	e := c.QueryRowContext(ctx, `SELECT lsn::text, pg_catalog.pg_wal_lsn_diff(lsn,$1::pg_lsn)::bigint,
-(SELECT COALESCE(sum(size),0)::bigint FROM pg_catalog.pg_ls_waldir())
+(`+incrementalWALFilesSQL+`)
 FROM pg_catalog.pg_current_wal_insert_lsn() AS lsn`, from).Scan(&s.lsn, &s.trafficBytes, &s.fileBytes)
 	return s, e
 }
@@ -290,7 +316,11 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 			}
 			sample = next
 		}
-		return ErrIncrementalWAL
+		if e = checkIncrementalWALFiles("relocation", sample.fileBytes, walLimit); e != nil {
+			return e
+		}
+		return &IncrementalWALStop{Phase: "relocation", Metric: "wal_quiet_interval_bytes",
+			ObservedBytes: sample.trafficBytes, LimitBytes: incrementalWALBurstBytes / 4}
 	}
 	if e = incrementalMeasure(ctx, c, name, &table); e != nil {
 		return e
@@ -334,16 +364,7 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 		if !safe {
 			return ErrIncrementalUnsupported
 		}
-		// VACUUM verifies the tail itself and briefly locks this table for
-		// truncation. Its own traffic window starts at the VACUUM boundary.
-		vacuumWAL, e := sampleIncrementalWAL(ctx, c, "0/0")
-		if e != nil {
-			return e
-		}
-		if vacuumWAL.fileBytes >= walLimit {
-			return ErrIncrementalWAL
-		}
-		if e = r.vacuumIncrementalTail(ctx, c, name, vacuumWAL.lsn, walLimit); e != nil {
+		if e = r.vacuumIncrementalTail(ctx, c, name, walLimit); e != nil {
 			return e
 		}
 		after := table
@@ -397,9 +418,22 @@ func prepareIncrementalTail(ctx context.Context, c *sql.Conn, name string, table
 	return nil
 }
 
-func (r *DatabaseMaintenanceRepository) vacuumIncrementalTail(ctx context.Context, c *sql.Conn, name, startLSN string, walLimit int64) error {
+func (r *DatabaseMaintenanceRepository) vacuumIncrementalTail(ctx context.Context, c *sql.Conn, name string, walLimit int64) error {
 	pool, e := r.pool()
 	if e != nil {
+		return e
+	}
+	// VACUUM's index pass may span multiple recycled WAL segments. Its cost
+	// settings and deadline bound the work, while the task-wide WAL file
+	// budget and the service's filesystem guard bound occupied space.
+	checkFiles := func(ctx context.Context, queryer incrementalQueryer) error {
+		bytes, e := incrementalWALFiles(ctx, queryer)
+		if e != nil {
+			return e
+		}
+		return checkIncrementalWALFiles("vacuum", bytes, walLimit)
+	}
+	if e = checkFiles(ctx, c); e != nil {
 		return e
 	}
 	work, stop := context.WithCancelCause(ctx)
@@ -414,17 +448,13 @@ func (r *DatabaseMaintenanceRepository) vacuumIncrementalTail(ctx context.Contex
 				return
 			case <-tick.C:
 				check, cancel := context.WithTimeout(work, time.Second)
-				wal, e := sampleIncrementalWAL(check, pool, startLSN)
+				e := checkFiles(check, pool)
 				cancel()
 				if work.Err() != nil {
 					return
 				}
 				if e != nil {
 					stop(e)
-					return
-				}
-				if wal.trafficBytes >= 160<<20 || wal.fileBytes >= walLimit {
-					stop(ErrIncrementalWAL)
 					return
 				}
 				if !r.incrementalDiskSafe() {
@@ -563,12 +593,12 @@ FROM moved`, positions, lo, hi).Scan(&positions, &moved, &pastEnd)
 		if e = tx.QueryRowContext(ctx, `SELECT cardinality($1::tid[])`, positions).Scan(&remaining); e != nil {
 			return e
 		}
-		wal, e := sampleIncrementalWAL(ctx, tx, "0/0")
+		walBytes, e := incrementalWALFiles(ctx, tx)
 		if e != nil {
 			return e
 		}
-		if wal.fileBytes >= walLimit {
-			return ErrIncrementalWAL
+		if e = checkIncrementalWALFiles("relocation", walBytes, walLimit); e != nil {
+			return e
 		}
 	}
 	var occupied bool

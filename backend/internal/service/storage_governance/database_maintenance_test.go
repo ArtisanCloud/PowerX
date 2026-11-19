@@ -162,13 +162,32 @@ func maintenancePreviewAndQueue(t *testing.T, s *Service, mode string) DatabaseM
 	t.Helper()
 	p, e := s.PreviewDatabaseMaintenance(controlRoot(), DatabaseMaintenancePreview{Mode: mode, Tables: []string{"capability-invocation-traces"}})
 	require.NoError(t, e)
-	r, e := s.StartDatabaseMaintenanceRequest(controlRoot(), DatabaseMaintenanceRequest{RequestID: uuid.NewString(), PreviewID: p.ID, Confirm: true, ExclusiveLockConfirmed: mode == "compact"})
+	r, e := s.StartDatabaseMaintenanceRequest(controlRoot(), DatabaseMaintenanceRequest{RequestID: uuid.NewString(), PreviewID: p.ID, Confirm: true, ExclusiveLockConfirmed: mode != "reuse"})
 	require.NoError(t, e)
 	require.Equal(t, "queued", r.State)
 	return r
 }
 func maintenanceDelivery(s *Service, r DatabaseMaintenanceRun) event_bus.StreamTaskDelivery {
 	return event_bus.StreamTaskDelivery{Message: s.maintenanceMessage(r)}
+}
+
+func TestDatabaseMaintenanceWALStopPersistsMeasuredLimit(t *testing.T) {
+	s, backend, _ := maintenanceFixture(t)
+	stop := &repo.IncrementalWALStop{
+		Phase: "vacuum", Metric: "wal_file_bytes", ObservedBytes: 864 << 20, LimitBytes: 848 << 20,
+	}
+	backend.onExecute = func(context.Context) error { return stop }
+	run := maintenancePreviewAndQueue(t, s, repo.IncrementalMaintenanceMode)
+
+	require.NoError(t, s.applyDatabaseMaintenance(context.Background(), maintenanceDelivery(s, run)))
+	finished, e := s.DatabaseMaintenanceRun(controlRoot(), run.ID)
+	require.NoError(t, e)
+	require.Equal(t, "failed", finished.State)
+	require.Equal(t, "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET", finished.Problem)
+	require.Equal(t, stop, finished.WALStop)
+	status, e := s.opts.Budget.Status(context.Background())
+	require.NoError(t, e)
+	require.Empty(t, status.Active)
 }
 
 func TestDatabaseMaintenanceLeaseLossStopsCommandAndNeverReplaysSQL(t *testing.T) {

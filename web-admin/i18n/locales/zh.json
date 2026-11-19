@@ -1712,6 +1712,13 @@
         "running": "正在整理",
         "completed": "已完成"
       },
+      "walStop": {
+        "relocation": "搬移记录",
+        "vacuum": "清理索引与截断",
+        "wal_file_bytes": "WAL 文件占用",
+        "wal_quiet_interval_bytes": "最近 2 秒 WAL 写入量",
+        "detail": "{phase}阶段检测到{metric}为 {observed}，上限为 {limit}。"
+      },
       "problems": {
         "AUTH_SESSION_CHANGED": "登录身份已变化，请刷新页面后重新核对任务。",
         "DATABASE_MAINTENANCE_CANCELLED": "已收到取消请求，维护步骤已停止。",

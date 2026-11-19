@@ -1425,6 +1425,13 @@
         "running": "Maintaining",
         "completed": "Completed"
       },
+      "walStop": {
+        "relocation": "行の移動",
+        "vacuum": "インデックス整理と切り詰め",
+        "wal_file_bytes": "WAL ファイル使用量",
+        "wal_quiet_interval_bytes": "直近 2 秒間の WAL 書き込み量",
+        "detail": "{phase}のとき、{metric}は {observed}、上限は {limit} でした。"
+      },
       "problems": {
         "AUTH_SESSION_CHANGED": "The signed-in identity changed. Reload the page and reconcile the task.",
         "DATABASE_MAINTENANCE_CANCELLED": "Cancellation was requested; the maintenance step stopped.",

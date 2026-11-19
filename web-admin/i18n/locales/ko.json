@@ -1425,6 +1425,13 @@
         "running": "Maintaining",
         "completed": "Completed"
       },
+      "walStop": {
+        "relocation": "행 이동",
+        "vacuum": "인덱스 정리 및 잘라내기",
+        "wal_file_bytes": "WAL 파일 크기",
+        "wal_quiet_interval_bytes": "최근 2초간 WAL 쓰기량",
+        "detail": "{phase} 단계에서 {metric}이 {observed}에 도달했습니다. 상한은 {limit}입니다."
+      },
       "problems": {
         "AUTH_SESSION_CHANGED": "The signed-in identity changed. Reload the page and reconcile the task.",
         "DATABASE_MAINTENANCE_CANCELLED": "Cancellation was requested; the maintenance step stopped.",
