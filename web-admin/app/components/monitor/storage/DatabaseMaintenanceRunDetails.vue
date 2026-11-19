@@ -23,6 +23,21 @@
         <p v-if="step.incremental" class="mt-1 text-xs text-muted">
           {{ t('storageGov.dbMaintenance.incrementalProgress', { count: step.incremental.slices_completed, space: n(step.incremental.heap_reclaimed_bytes) }) }}
         </p>
+        <p v-if="run.state === 'completed' && step.incremental_stop_reason" class="mt-1 text-xs text-muted">
+          {{ t('storageGov.dbMaintenance.batchDetails.' + step.incremental_stop_reason) }}
+        </p>
+        <details v-if="step.incremental_batches?.length" class="mt-2 text-xs" data-testid="maintenance-batch-details">
+          <summary class="cursor-pointer">{{ t('storageGov.dbMaintenance.batchDetails.title') }}</summary>
+          <ol class="mt-2 max-h-64 space-y-2 overflow-y-auto text-muted">
+            <li v-for="(batch, index) in step.incremental_batches" :key="index" class="flex flex-wrap gap-x-3 gap-y-1 border-t border-default pt-2 tabular-nums">
+              <span>{{ t('storageGov.dbMaintenance.batchDetails.batch', { number: n(index + 1), seconds: n(batch.elapsed_ms / 1000, { maximumFractionDigits: 2 }) }) }}</span>
+              <span v-if="batch.vacuum_attempts > 1">{{ t('storageGov.dbMaintenance.batchDetails.retries', { count: n(batch.vacuum_attempts - 1) }) }}</span>
+              <span v-if="batch.truncate_lock_waits">{{ t('storageGov.dbMaintenance.batchDetails.lockWaits', { count: n(batch.truncate_lock_waits) }) }}</span>
+              <span v-if="batch.table_change_bytes !== undefined">{{ t('storageGov.dbMaintenance.batchDetails.change', { bytes: signedBytes(batch.table_change_bytes) }) }}</span>
+              <span v-if="batch.stop_phase" class="text-warning">{{ t('storageGov.dbMaintenance.batchDetails.' + batch.stop_phase) }}</span>
+            </li>
+          </ol>
+        </details>
       </li>
     </ol>
     <p v-else-if="['queued', 'running'].includes(run.state)" class="text-sm text-muted">{{ t('storageGov.dbMaintenance.' + (run.state === 'queued' ? 'waitingQueue' : 'preparing')) }}</p>
@@ -44,6 +59,7 @@ import { formatStorageBytes as bytes } from '~/utils/storage-capacity';
 const props = defineProps<{ run: DatabaseMaintenanceRun; busy?: boolean }>();
 defineEmits<{ cancel: [DatabaseMaintenanceRun]; review: [DatabaseMaintenanceRun] }>();
 const { t, te, n } = useI18n();
+const signedBytes = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${bytes(Math.abs(value))}`;
 const tableLabel = (id: MaintenanceTableID) => t('storageGov.dbMaintenance.tables.' + id);
 const tableTotal = (s: MaintenanceSnapshot) => s.tables.filter(row => props.run.tables.includes(row.id)).reduce((total, row) => total + row.total_bytes, 0);
 function stepLabel(state: DatabaseMaintenanceRun['steps'][number]['state']) {

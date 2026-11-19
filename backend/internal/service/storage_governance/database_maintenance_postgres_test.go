@@ -318,6 +318,8 @@ FROM generate_series(1,?)`, megabytes).Error)
 	require.NoError(t, e)
 	require.EqualValues(t, 1152<<20, preview.PeakBytes)
 	initialWALFiles := walFileBytes()
+	var vacuumCount int64
+	require.NoError(t, db.Raw(`SELECT vacuum_count FROM pg_stat_user_tables WHERE relid=to_regclass(?)`, name).Scan(&vacuumCount).Error)
 	req := DatabaseMaintenanceRequest{RequestID: uuid.NewString(), PreviewID: preview.ID, Confirm: true}
 	_, e = s.StartDatabaseMaintenanceRequest(ctx, req)
 	require.Equal(t, "DATABASE_MAINTENANCE_LOCK_CONFIRMATION_REQUIRED", dto.CodeOf(e))
@@ -331,6 +333,12 @@ FROM pg_stat_progress_vacuum v JOIN pg_stat_activity a USING (pid)
 WHERE a.application_name=? AND v.phase IN ('vacuuming indexes','scanning heap')`,
 			"px.dbmaint."+req.RequestID).Scan(&vacuumStart).Error == nil && vacuumStart != ""
 	}, 20*time.Second, 10*time.Millisecond)
+	// A concurrent reader lets the index/heap cleanup finish but prevents the
+	// first VACUUM from acquiring the exclusive lock for tail truncation.
+	reader := db.Begin()
+	require.NoError(t, reader.Error)
+	defer reader.Rollback()
+	require.NoError(t, reader.Exec("LOCK TABLE ONLY "+name+" IN ACCESS SHARE MODE").Error)
 	emitWAL(192)
 	var walBytes int64
 	require.NoError(t, db.Raw("SELECT pg_wal_lsn_diff(pg_current_wal_insert_lsn(), ?::pg_lsn)::bigint", vacuumStart).Scan(&walBytes).Error)
@@ -338,12 +346,50 @@ WHERE a.application_name=? AND v.phase IN ('vacuuming indexes','scanning heap')`
 	fileGrowth := walFileBytes() - initialWALFiles
 	require.Greater(t, fileGrowth, int64(128<<20))
 	t.Logf("WAL generated after VACUUM started: %d bytes, WAL files grew by %d bytes", walBytes, fileGrowth)
+	require.Eventually(t, func() bool {
+		var waiting bool
+		return db.Raw(`SELECT EXISTS(SELECT FROM pg_stat_activity WHERE application_name=? AND wait_event='VacuumTruncate')`,
+			"px.dbmaint."+req.RequestID).Scan(&waiting).Error == nil && waiting
+	}, 18*time.Second, 10*time.Millisecond, "first VACUUM must attempt to truncate with the reader still holding the lock")
+	require.Eventually(t, func() bool {
+		var count int64
+		return db.Raw(`SELECT vacuum_count FROM pg_stat_user_tables WHERE relid=to_regclass(?)`, name).Scan(&count).Error == nil && count > vacuumCount
+	}, 8*time.Second, 20*time.Millisecond, "first VACUUM must return without truncating")
+	var blockedHeapBytes int64
+	require.NoError(t, reader.Raw(`SELECT pg_relation_size(to_regclass(?))`, name).Scan(&blockedHeapBytes).Error)
+	require.Equal(t, heapBytes(preview.Before), blockedHeapBytes)
+	require.NoError(t, reader.Commit().Error)
 
 	var final DatabaseMaintenanceRun
+	var workloadErr error
+	var workloadSamples int
+	var longestWorkloadSample time.Duration
 	require.Eventually(t, func() bool {
 		final, e = s.DatabaseMaintenanceRun(ctx, req.RequestID)
-		return e == nil && (final.State == "completed" || final.State == "failed" || final.State == "unconfirmed" || final.State == "cancelled")
+		if e == nil && (final.State == "completed" || final.State == "failed" || final.State == "unconfirmed" || final.State == "cancelled") {
+			return true
+		}
+		// Keep a business read and a write to the selected system table active
+		// while later slices run, using only test rows with unchanged values.
+		started := time.Now()
+		query, stopQuery := context.WithTimeout(ctx, time.Second)
+		defer stopQuery()
+		var amount int
+		workloadErr = db.WithContext(query).Raw("SELECT amount FROM " + business + " WHERE id=901").Scan(&amount).Error
+		if workloadErr != nil {
+			return true
+		}
+		write := db.WithContext(query).Exec("UPDATE ONLY " + name + " SET last_error=last_error WHERE id=96001")
+		workloadErr = write.Error
+		if workloadErr == nil && (amount != 123 || write.RowsAffected != 1) {
+			workloadErr = fmt.Errorf("unexpected fixture read/write result: amount=%d, written=%d", amount, write.RowsAffected)
+		}
+		workloadSamples++
+		longestWorkloadSample = max(longestWorkloadSample, time.Since(started))
+		return workloadErr != nil
 	}, 90*time.Second, 50*time.Millisecond)
+	require.NoError(t, workloadErr)
+	require.GreaterOrEqual(t, workloadSamples, 2)
 	require.Equal(t, "completed", final.State, "%+v", final)
 	require.Equal(t, preview.PeakBytes, final.PeakBytes)
 	require.Len(t, final.Steps, 1)
@@ -355,7 +401,20 @@ WHERE a.application_name=? AND v.phase IN ('vacuuming indexes','scanning heap')`
 	require.NotNil(t, final.Steps[0].Incremental)
 	require.Equal(t, 4, final.Steps[0].Incremental.SlicesCompleted)
 	require.Equal(t, beforeBytes-afterBytes, final.Steps[0].Incremental.HeapReclaimedBytes)
+	batches := final.Steps[0].IncrementalBatches
+	require.Len(t, batches, 4)
+	require.GreaterOrEqual(t, batches[0].VacuumAttempts, 2, "the first slice must succeed by retrying truncation")
+	require.Equal(t, 1, batches[0].TruncateLockWaits)
+	require.Empty(t, batches[0].StopPhase)
+	require.Greater(t, batches[0].ElapsedMS, int64(4500), "the first slice should include the failed truncation window")
+	require.NotNil(t, batches[0].TableChangeBytes)
+	require.Negative(t, *batches[0].TableChangeBytes)
+	require.Equal(t, "batch_limit", final.Steps[0].IncrementalStopReason)
+	require.NotNil(t, final.FilesystemAvailableBefore)
+	require.NotNil(t, final.FilesystemAvailableAfter)
 	t.Logf("notification heap after %d slices: %d -> %d bytes", final.Steps[0].Incremental.SlicesCompleted, beforeBytes, afterBytes)
+	t.Logf("%d concurrent read/write samples, longest %v; filesystem delta %d bytes", workloadSamples, longestWorkloadSample,
+		*final.FilesystemAvailableAfter-*final.FilesystemAvailableBefore)
 	require.Equal(t, expected, digest())
 	require.Equal(t, auditBefore, maintenanceDataDigest(t, db, "capability_registry_invocation_traces"))
 	require.Equal(t, businessBefore, maintenanceDataDigest(t, db, "orders"))
@@ -428,6 +487,12 @@ func TestDatabaseMaintenanceNativePostgresIncrementalPreservesAuditOnPartialStop
 	require.NotNil(t, progress)
 	require.Equal(t, 1, progress.SlicesCompleted)
 	require.EqualValues(t, 8<<20, progress.HeapReclaimedBytes)
+	batches := final.Steps[0].IncrementalBatches
+	require.Len(t, batches, 2)
+	require.Empty(t, batches[0].StopPhase)
+	require.Equal(t, "eligibility", batches[1].StopPhase)
+	require.Zero(t, batches[1].VacuumAttempts)
+	require.Nil(t, batches[1].TableChangeBytes)
 	require.NotNil(t, final.After)
 	require.Equal(t, auditDigest, maintenanceDataDigest(t, db, auditName))
 	require.Equal(t, businessDigest, maintenanceDataDigest(t, db, "orders"))

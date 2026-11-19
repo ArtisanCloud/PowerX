@@ -30,6 +30,7 @@ const (
 	incrementalRowsPerTransaction          = 500
 	incrementalVersionsPerTransaction      = 1200
 	incrementalSlicesPerRun                = 64
+	incrementalTruncationRetries           = 2
 	incrementalWALBurstBytes               = 96 << 20
 	incrementalRunLimit                    = 12 * time.Minute
 )
@@ -55,6 +56,15 @@ type IncrementalWALStop struct {
 
 func (e *IncrementalWALStop) Error() string { return ErrIncrementalWAL.Error() }
 func (e *IncrementalWALStop) Unwrap() error { return ErrIncrementalWAL }
+
+// IncrementalBatchStop carries the stopped slice into the durable terminal receipt.
+type IncrementalBatchStop struct {
+	Batch MaintenanceIncrementalBatch
+	cause error
+}
+
+func (e *IncrementalBatchStop) Error() string { return e.cause.Error() }
+func (e *IncrementalBatchStop) Unwrap() error { return e.cause }
 
 func checkIncrementalWALFiles(phase string, measured, limit int64) error {
 	if measured >= limit {
@@ -245,7 +255,7 @@ FROM pg_catalog.pg_current_wal_insert_lsn() AS lsn`, from).Scan(&s.lsn, &s.traff
 	return s, e
 }
 
-func (r *DatabaseMaintenanceRepository) executeIncremental(ctx context.Context, c *sql.Conn, snap MaintenanceSnapshot, id string, peakBytes int64, guard func(context.Context) error, progress func(MaintenanceIncrementalProgress) error) error {
+func (r *DatabaseMaintenanceRepository) executeIncremental(ctx context.Context, c *sql.Conn, snap MaintenanceSnapshot, id string, peakBytes int64, pid int, guard func(context.Context) error, report func(MaintenanceIncrementalReport) error) error {
 	table, fsm, e := r.incrementalReady(ctx, c, snap, id)
 	if e != nil {
 		return e
@@ -333,18 +343,13 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 	// Small relations need fewer repeated index passes.
 	slices := min(incrementalSlicesPerRun, max(4, table.HeapBytes/(32<<20)))
 	deadline, _ := ctx.Deadline()
-	var reported MaintenanceIncrementalProgress
-	var previousSliceDuration time.Duration
-	for slice := int64(0); slice < slices; slice++ {
-		// A new index pass must fit the remaining time at the observed pace.
-		if slice > 0 && time.Until(deadline) < max(4*time.Minute, previousSliceDuration) {
-			return nil
-		}
-		started := time.Now()
-		if e = check(); e != nil {
+	runSlice := func(batch *MaintenanceIncrementalBatch) error {
+		batch.StopPhase = "checks"
+		if e := check(); e != nil {
 			return e
 		}
-		if e = incrementalMeasure(ctx, c, name, &table); e != nil {
+		batch.StopPhase = "measurement"
+		if e := incrementalMeasure(ctx, c, name, &table); e != nil {
 			return e
 		}
 		// Only verified net shrink can offset WAL growth. Recalculate using the
@@ -352,46 +357,53 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 		walLimit = initialWAL.fileBytes + walGrowthBudget + max(0, initialTotal-table.TotalBytes)
 		end := table.HeapBytes / incrementalBlockBytes
 		start := incrementalStart(end)
-		if e = incrementalPrecheck(ctx, c, name, fsm, table, start, end); e != nil {
+		batch.StopPhase = "eligibility"
+		if e := incrementalPrecheck(ctx, c, name, fsm, table, start, end); e != nil {
 			return e
 		}
-		if e = prepareIncrementalTail(ctx, c, name, table, start, end, check, pace, walLimit); e != nil {
+		batch.StopPhase = "relocation"
+		if e := prepareIncrementalTail(ctx, c, name, table, start, end, check, pace, walLimit); e != nil {
 			return e
 		}
-		if e = check(); e != nil {
-			return e
-		}
-		if e = pace(); e != nil {
-			return e
-		}
-		safe, e := incrementalTableSafe(ctx, c, name, table)
+		after, e := r.reclaimIncrementalTail(ctx, c, name, table, start, end, walLimit, pid, check, pace, batch)
 		if e != nil {
 			return e
 		}
-		if !safe {
-			return ErrIncrementalUnsupported
-		}
-		if e = r.vacuumIncrementalTail(ctx, c, name, walLimit); e != nil {
-			return e
-		}
-		after := table
-		if e = incrementalMeasure(ctx, c, name, &after); e != nil {
-			return e
-		}
-		if after.HeapBytes >= table.HeapBytes {
+		change := after.TotalBytes - table.TotalBytes
+		batch.TableChangeBytes = &change
+		batch.HeapReclaimedBytes = max(0, table.HeapBytes-after.HeapBytes)
+		if batch.HeapReclaimedBytes == 0 {
+			if batch.StopPhase != "tail_refilled" {
+				batch.StopPhase = "tail_not_truncated"
+			}
 			return ErrIncrementalNoReclaim
 		}
-		reported.SlicesCompleted++
-		reported.HeapReclaimedBytes += table.HeapBytes - after.HeapBytes
-		if e = progress(reported); e != nil {
-			return e
-		}
-		if after.TotalBytes >= table.TotalBytes {
+		if change >= 0 {
+			batch.StopPhase = "table_not_smaller"
 			return ErrIncrementalNoReclaim
 		}
-		previousSliceDuration = time.Since(started)
+		batch.StopPhase = ""
+		return nil
 	}
-	return nil
+	var previousSliceDuration time.Duration
+	for slice := int64(0); slice < slices; slice++ {
+		// A new index pass must fit the remaining time at the observed pace.
+		if slice > 0 && time.Until(deadline) < max(4*time.Minute, previousSliceDuration) {
+			return report(MaintenanceIncrementalReport{StopReason: "time_budget"})
+		}
+		started := time.Now()
+		var batch MaintenanceIncrementalBatch
+		e := runSlice(&batch)
+		previousSliceDuration = time.Since(started)
+		batch.ElapsedMS = previousSliceDuration.Milliseconds()
+		if e != nil {
+			return &IncrementalBatchStop{Batch: batch, cause: e}
+		}
+		if e = report(MaintenanceIncrementalReport{Batch: &batch}); e != nil {
+			return e
+		}
+	}
+	return report(MaintenanceIncrementalReport{StopReason: "batch_limit"})
 }
 
 func incrementalMeasure(ctx context.Context, c *sql.Conn, name string, table *MaintenanceTable) error {
@@ -426,7 +438,51 @@ func prepareIncrementalTail(ctx context.Context, c *sql.Conn, name string, table
 	return nil
 }
 
-func (r *DatabaseMaintenanceRepository) vacuumIncrementalTail(ctx context.Context, c *sql.Conn, name string, walLimit int64) error {
+func (r *DatabaseMaintenanceRepository) reclaimIncrementalTail(ctx context.Context, c *sql.Conn, name string, table MaintenanceTable, start, end, walLimit int64, pid int, check, pace func() error, batch *MaintenanceIncrementalBatch) (MaintenanceTable, error) {
+	after := table
+	for attempt := 0; attempt <= incrementalTruncationRetries; attempt++ {
+		batch.StopPhase = "checks"
+		if e := check(); e != nil {
+			return after, e
+		}
+		if e := pace(); e != nil {
+			return after, e
+		}
+		safe, e := incrementalTableSafe(ctx, c, name, table)
+		if e != nil {
+			return after, e
+		}
+		if !safe {
+			return after, ErrIncrementalUnsupported
+		}
+		if attempt > 0 {
+			// VACUUM can finish index/heap cleanup but skip truncation, for
+			// example if a concurrent reader holds the table. Retry the already
+			// cleared tail without moving rows or cleaning the indexes again.
+			var occupied bool
+			e = c.QueryRowContext(ctx, `SELECT EXISTS(SELECT FROM ONLY `+name+` WHERE `+incrementalRange+`)`,
+				incrementalTID(start), incrementalTID(end)).Scan(&occupied)
+			if e != nil {
+				return after, e
+			}
+			if occupied {
+				batch.StopPhase = "tail_refilled"
+				return after, nil
+			}
+		}
+		batch.StopPhase = "vacuum"
+		if e = r.vacuumIncrementalTail(ctx, c, name, walLimit, pid, batch); e != nil {
+			return after, e
+		}
+		batch.StopPhase = "measurement"
+		if e = incrementalMeasure(ctx, c, name, &after); e != nil || after.HeapBytes != table.HeapBytes {
+			return after, e
+		}
+	}
+	return after, nil
+}
+
+func (r *DatabaseMaintenanceRepository) vacuumIncrementalTail(ctx context.Context, c *sql.Conn, name string, walLimit int64, pid int, batch *MaintenanceIncrementalBatch) error {
 	pool, e := r.pool()
 	if e != nil {
 		return e
@@ -434,18 +490,16 @@ func (r *DatabaseMaintenanceRepository) vacuumIncrementalTail(ctx context.Contex
 	// VACUUM's index pass may span multiple recycled WAL segments. Its cost
 	// settings and deadline bound the work, while the task-wide WAL file
 	// budget and the service's filesystem guard bound occupied space.
-	checkFiles := func(ctx context.Context, queryer incrementalQueryer) error {
-		bytes, e := incrementalWALFiles(ctx, queryer)
-		if e != nil {
-			return e
-		}
-		return checkIncrementalWALFiles("vacuum", bytes, walLimit)
+	walBytes, e := incrementalWALFiles(ctx, c)
+	if e != nil {
+		return e
 	}
-	if e = checkFiles(ctx, c); e != nil {
+	if e = checkIncrementalWALFiles("vacuum", walBytes, walLimit); e != nil {
 		return e
 	}
 	work, stop := context.WithCancelCause(ctx)
 	done := make(chan struct{})
+	var observedTruncateLock bool
 	go func() {
 		defer close(done)
 		tick := time.NewTicker(500 * time.Millisecond)
@@ -456,12 +510,20 @@ func (r *DatabaseMaintenanceRepository) vacuumIncrementalTail(ctx context.Contex
 				return
 			case <-tick.C:
 				check, cancel := context.WithTimeout(work, time.Second)
-				e := checkFiles(check, pool)
+				var bytes int64
+				var waiting bool
+				e := pool.QueryRowContext(check, `SELECT (`+incrementalWALFilesSQL+`), EXISTS(
+ SELECT FROM pg_catalog.pg_stat_activity WHERE pid=$1 AND wait_event='VacuumTruncate')`, pid).Scan(&bytes, &waiting)
 				cancel()
+				observedTruncateLock = observedTruncateLock || waiting
 				if work.Err() != nil {
 					return
 				}
 				if e != nil {
+					stop(e)
+					return
+				}
+				if e = checkIncrementalWALFiles("vacuum", bytes, walLimit); e != nil {
 					stop(e)
 					return
 				}
@@ -472,11 +534,19 @@ func (r *DatabaseMaintenanceRepository) vacuumIncrementalTail(ctx context.Contex
 			}
 		}
 	}()
-	_, e = c.ExecContext(work, `VACUUM (TRUNCATE TRUE, INDEX_CLEANUP ON, PROCESS_TOAST FALSE,
+	indexCleanup := "OFF"
+	if batch.VacuumAttempts == 0 {
+		indexCleanup = "ON"
+	}
+	batch.VacuumAttempts++
+	_, e = c.ExecContext(work, `VACUUM (TRUNCATE TRUE, INDEX_CLEANUP `+indexCleanup+`, PROCESS_TOAST FALSE,
 SKIP_DATABASE_STATS TRUE, PARALLEL 0, BUFFER_USAGE_LIMIT '2MB') `+name)
 	cause := context.Cause(work)
 	stop(nil)
 	<-done
+	if observedTruncateLock {
+		batch.TruncateLockWaits++
+	}
 	if cause != nil {
 		return cause
 	}

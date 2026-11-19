@@ -243,6 +243,10 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 			}
 			x.State = finalState
 			x.Problem = problem
+			var batchStop *repo.IncrementalBatchStop
+			if len(x.Steps) == 1 && errors.As(cause, &batchStop) {
+				x.Steps[0].recordIncrementalBatch(batchStop.Batch)
+			}
 			var walStop *repo.IncrementalWALStop
 			if problem == "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET" && errors.As(cause, &walStop) {
 				x.WALStop = walStop
@@ -329,6 +333,7 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 			}
 		}
 	}()
+	var incrementalStopReason string
 	e = s.maintenance.backend.Execute(command, v.ID, v.Mode, v.Before, v.Tables, v.PeakBytes, func(id string, session repo.MaintenanceSession) error {
 		if e := s.maintenanceSafety(command, v, lease.ID()); e != nil {
 			return e
@@ -352,6 +357,7 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 					now := s.opts.Now().UTC()
 					x.Steps[i].State = "completed"
 					x.Steps[i].FinishedAt = &now
+					x.Steps[i].IncrementalStopReason = incrementalStopReason
 					return nil
 				}
 			}
@@ -360,7 +366,11 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 		return e
 	}, func(ctx context.Context) error {
 		return s.maintenanceSafety(ctx, v, lease.ID())
-	}, func(progress repo.MaintenanceIncrementalProgress) error {
+	}, func(report repo.MaintenanceIncrementalReport) error {
+		if report.Batch == nil {
+			incrementalStopReason = report.StopReason
+			return nil
+		}
 		_, e := s.maintenanceDeliveryChange(command, item, v.ID, false, func(x *DatabaseMaintenanceRun) error {
 			if x.State == "cancel_requested" {
 				return controlError(409, "DATABASE_MAINTENANCE_CANCELLED")
@@ -368,7 +378,7 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 			if x.State != "running" || len(x.Steps) != 1 || x.Steps[0].State != "running" {
 				return repo.ErrRevisionConflict
 			}
-			x.Steps[0].Incremental = &progress
+			x.Steps[0].recordIncrementalBatch(*report.Batch)
 			return nil
 		})
 		return e

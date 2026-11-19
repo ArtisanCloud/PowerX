@@ -15,7 +15,7 @@ import (
 type DatabaseMaintenanceBackend interface {
 	Inspect(context.Context) (repo.MaintenanceSnapshot, error)
 	CheckIncremental(context.Context, repo.MaintenanceSnapshot, string) error
-	Execute(context.Context, string, string, repo.MaintenanceSnapshot, []string, int64, func(string, repo.MaintenanceSession) error, func(string) error, func(context.Context) error, func(repo.MaintenanceIncrementalProgress) error) error
+	Execute(context.Context, string, string, repo.MaintenanceSnapshot, []string, int64, func(string, repo.MaintenanceSession) error, func(string) error, func(context.Context) error, func(repo.MaintenanceIncrementalReport) error) error
 	SessionActive(context.Context, repo.MaintenanceSession, bool) (bool, error)
 	RootActive(context.Context, uint64) error
 }
@@ -39,12 +39,27 @@ type databaseMaintenance struct {
 	wake    chan struct{}
 }
 type DatabaseMaintenanceStep struct {
-	TableID     string                               `json:"table_id"`
-	State       string                               `json:"state"`
-	StartedAt   time.Time                            `json:"started_at"`
-	FinishedAt  *time.Time                           `json:"finished_at,omitempty"`
-	Incremental *repo.MaintenanceIncrementalProgress `json:"incremental,omitempty"`
+	TableID               string                               `json:"table_id"`
+	State                 string                               `json:"state"`
+	StartedAt             time.Time                            `json:"started_at"`
+	FinishedAt            *time.Time                           `json:"finished_at,omitempty"`
+	Incremental           *repo.MaintenanceIncrementalProgress `json:"incremental,omitempty"`
+	IncrementalBatches    []repo.MaintenanceIncrementalBatch   `json:"incremental_batches,omitempty"`
+	IncrementalStopReason string                               `json:"incremental_stop_reason,omitempty"`
 }
+
+func (s *DatabaseMaintenanceStep) recordIncrementalBatch(batch repo.MaintenanceIncrementalBatch) {
+	s.IncrementalBatches = append(s.IncrementalBatches, batch)
+	if batch.HeapReclaimedBytes == 0 {
+		return
+	}
+	if s.Incremental == nil {
+		s.Incremental = &repo.MaintenanceIncrementalProgress{}
+	}
+	s.Incremental.SlicesCompleted++
+	s.Incremental.HeapReclaimedBytes += batch.HeapReclaimedBytes
+}
+
 type DatabaseMaintenanceRun struct {
 	ID                        string                    `json:"id"`
 	Version                   int64                     `json:"version"`
