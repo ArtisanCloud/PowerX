@@ -1712,6 +1712,13 @@
         "running": "Maintaining",
         "completed": "Completed"
       },
+      "walStop": {
+        "relocation": "Moving rows",
+        "vacuum": "Cleaning indexes and truncating",
+        "wal_file_bytes": "WAL file size",
+        "wal_quiet_interval_bytes": "WAL written in the last 2 seconds",
+        "detail": "{phase} stopped when {metric} reached {observed}, with a limit of {limit}."
+      },
       "problems": {
         "AUTH_SESSION_CHANGED": "The signed-in identity changed. Reload the page and reconcile the task.",
         "DATABASE_MAINTENANCE_CANCELLED": "Cancellation was requested; the maintenance step stopped.",

@@ -31,6 +31,15 @@ it('accepts a single system table and validates measured incremental progress', 
   expect(() => decodeDatabaseMaintenanceRun({ ...auditRun, steps: [{ ...auditRun.steps[0], incremental: { slices_completed: 1, heap_reclaimed_bytes: -1 } }] })).toThrow('DATABASE_MAINTENANCE_RESPONSE_INVALID');
   expect(() => decodeDatabaseMaintenanceRun({ ...run, tables: ['orders'] })).toThrow('DATABASE_MAINTENANCE_RESPONSE_INVALID');
 });
+it('preserves a measured WAL stop and accepts the historical receipt format', () => {
+  const run = { ...maintenanceRun('failed'), mode: 'incremental', tables: ['capability-event-publications'],
+    problem: 'DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET' };
+  const stop = { phase: 'vacuum', metric: 'wal_file_bytes', observed_bytes: 864 * 2 ** 20, limit_bytes: 848 * 2 ** 20 };
+  expect(decodeDatabaseMaintenanceRun(run).wal_stop).toBeUndefined();
+  expect(decodeDatabaseMaintenanceRun({ ...run, wal_stop: stop }).wal_stop).toEqual(stop);
+  expect(() => decodeDatabaseMaintenanceRun({ ...run, wal_stop: { ...stop, observed_bytes: stop.limit_bytes - 1 } })).toThrow();
+  expect(() => decodeDatabaseMaintenanceRun({ ...run, wal_stop: { ...stop, metric: 'wal_quiet_interval_bytes' } })).toThrow();
+});
 it('uses fixed maintenance contracts, no write retry, and the same request identity', async () => {
   const service = useStorageDatabaseMaintenanceService(), run = maintenanceRun('queued'), signal = new AbortController().signal;
   api.post.mockResolvedValue({ data: run });

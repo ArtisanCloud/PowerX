@@ -19,6 +19,12 @@ export interface DatabaseMaintenanceRun {
   before: MaintenanceSnapshot; after?: MaintenanceSnapshot; peak_bytes: number;
   steps: { incremental?: { slices_completed: number; heap_reclaimed_bytes: number }; table_id: MaintenanceTableID; state: 'running' | 'completed'; started_at: string; finished_at?: string }[];
   problem?: string; cancelled_by?: number; reviewed_by?: number;
+  wal_stop?: {
+    phase: 'relocation' | 'vacuum';
+    metric: 'wal_file_bytes' | 'wal_quiet_interval_bytes';
+    observed_bytes: number;
+    limit_bytes: number;
+  };
   filesystem_available_before?: number; filesystem_available_after?: number;
 }
 export interface DatabaseMaintenanceStatus {
@@ -59,6 +65,13 @@ export function decodeDatabaseMaintenanceRun(raw: unknown, expectedID?: string):
           size(x.incremental.heap_reclaimed_bytes) && x.incremental.heap_reclaimed_bytes > 0)) ||
       ['filesystem_available_before', 'filesystem_available_after'].some(k => d[k] !== undefined && !size(d[k]))) invalid();
   if (d.mode === 'incremental' && d.tables.length !== 1) invalid();
+  if (d.wal_stop !== undefined) {
+    const stop = d.wal_stop;
+    if (d.mode !== 'incremental' || d.problem !== 'DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET' ||
+        !stop || !['relocation', 'vacuum'].includes(stop.phase) ||
+        !(stop.metric === 'wal_file_bytes' || stop.metric === 'wal_quiet_interval_bytes' && stop.phase === 'relocation') ||
+        !size(stop.observed_bytes) || !size(stop.limit_bytes) || !stop.limit_bytes || stop.observed_bytes < stop.limit_bytes) invalid();
+  }
   decodeMaintenanceSnapshot(d.before); if (d.after !== undefined) decodeMaintenanceSnapshot(d.after);
   if (d.state === 'completed' && (d.steps.length !== d.tables.length || d.steps.some((x: any) => x.state !== 'completed'))) invalid();
   return d;

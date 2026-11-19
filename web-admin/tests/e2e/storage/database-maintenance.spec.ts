@@ -131,6 +131,7 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
     if (partial) {
       done.state = 'failed';
       done.problem = 'DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET';
+      done.wal_stop = { phase: 'vacuum', metric: 'wal_file_bytes', observed_bytes: 848 * 2 ** 20, limit_bytes: 848 * 2 ** 20 };
     }
     const finalLabel = partial ? '执行停止' : '已完成';
     f.status.runs = [done]; f.status.active = undefined; f.status.snapshot = supportedSnapshot(); f.emit();
@@ -138,7 +139,10 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
     await expect(receipt).toContainText(finalLabel);
     await expect(receipt).toContainText('选定表占用变化');
     if (incremental) await expect(receipt).toContainText('已完成 1 批');
-    if (partial) await expect(receipt).not.toContainText('正在整理');
+    if (partial) {
+      await expect(receipt).not.toContainText('正在整理');
+      await expect(receipt).toContainText('清理索引与截断阶段检测到WAL 文件占用为 848 MiB，上限为 848 MiB');
+    }
     await expect.poll(() => f.calls.reads).toBe(reads + 1);
     await page.getByTestId('maintenance-history').click(); await expect(page.getByRole('dialog')).toContainText(finalLabel); await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

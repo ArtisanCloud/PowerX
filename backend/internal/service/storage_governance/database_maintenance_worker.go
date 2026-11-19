@@ -243,6 +243,10 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 			}
 			x.State = finalState
 			x.Problem = problem
+			var walStop *repo.IncrementalWALStop
+			if problem == "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET" && errors.As(cause, &walStop) {
+				x.WALStop = walStop
+			}
 			if measureError == nil && repo.SameMaintenanceTarget(x.Before, after, x.Tables) {
 				x.After = &after
 			}
