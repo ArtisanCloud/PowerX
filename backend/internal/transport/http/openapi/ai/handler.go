@@ -12,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/core"
 	aisvc "github.com/ArtisanCloud/PowerX/internal/service/ai"
+	cap "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
@@ -147,9 +148,11 @@ func (h *aiHandler) llmInvoke(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant uuid missing", err)
 		return
 	}
-	env, err := pickEnv(c, tenantUUID, h.svc)
+	env, err := pickLLMEnv(c, tenantUUID, h.svc)
 	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		if !respondMediaError(c, err) {
+			dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		}
 		return
 	}
 
@@ -202,9 +205,11 @@ func (h *aiHandler) llmStream(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant uuid missing", err)
 		return
 	}
-	env, err := pickEnv(c, tenantUUID, h.svc)
+	env, err := pickLLMEnv(c, tenantUUID, h.svc)
 	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		if !respondMediaError(c, err) {
+			dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		}
 		return
 	}
 
@@ -597,6 +602,14 @@ func respondAIError(c *gin.Context, err error) {
 
 type envResolver interface {
 	ResolveTenantEnv(ctx context.Context, tenantUUID string) (string, bool, error)
+}
+
+func pickLLMEnv(c *gin.Context, tenant string, svc envResolver) (string, error) {
+	ctx := c.Request.Context()
+	if claims := reqctx.GetClaims(ctx); claims != nil && claims.Issuer == "powerx-sts" {
+		return cap.ResolveSTSLLMEnvironment(ctx, tenant, c.Query("env"), svc.ResolveTenantEnv)
+	}
+	return pickEnv(c, tenant, svc)
 }
 
 func pickEnv(c *gin.Context, tenantUUID string, svc envResolver) (string, error) {

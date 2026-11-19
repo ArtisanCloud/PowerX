@@ -14,6 +14,7 @@ import (
 	aisvc "github.com/ArtisanCloud/PowerX/internal/service/ai"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,6 +22,51 @@ type stubAIService struct {
 	llmModelsFn func(context.Context, string, string, string) ([]aisvc.LLMModelItem, error)
 	llmInvokeFn func(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (*aisvc.LLMInvokeResult, error)
 	llmStreamFn func(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}, onDelta func(string)) (string, error)
+}
+
+type stsLLMFixture struct{ stubAIService }
+
+func (*stsLLMFixture) ResolveTenantEnv(context.Context, string) (string, bool, error) {
+	return "staging", true, nil
+}
+
+func TestLLMInvokeUsesTenantAIEnvironmentForUnboundSTS(t *testing.T) {
+	const tenant = "11111111-1111-4111-8111-111111111111"
+	var usedEnv string
+	svc := &stsLLMFixture{}
+	svc.llmInvokeFn = func(_ context.Context, env, _, _ string, _ []aisvc.ContentItem, _ map[string]interface{}) (*aisvc.LLMInvokeResult, error) {
+		usedEnv = env
+		return &aisvc.LLMInvokeResult{Text: "fixture"}, nil
+	}
+	r := gin.New()
+	handler := &aiHandler{svc: svc}
+	r.POST("/api/v1/ai/llm/invoke", handler.llmInvoke)
+	for _, test := range []struct {
+		bound string
+		query string
+		code  int
+		env   string
+	}{
+		{"", "", 200, "staging"},
+		{"", "?env=staging", 200, "staging"},
+		{"", "?env=dev", 403, ""},
+		{"dev", "", 200, "dev"},
+		{"dev", "?env=staging", 403, ""},
+	} {
+		usedEnv = ""
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/llm/invoke"+test.query, strings.NewReader(`{"model_key":"ollama/fixture","inputs":[{"type":"text","content":"fixture"}]}`))
+		req.Header.Set("Content-Type", "application/json")
+		ctx := reqctx.WithClaims(reqctx.WithTenantUUID(req.Context(), tenant), &reqctx.CoreXClaims{
+			TenantUUID:       tenant,
+			Env:              test.bound,
+			RegisteredClaims: jwt.RegisteredClaims{Issuer: "powerx-sts"},
+		})
+		ctx = reqctx.WithSTSIssuanceStatus(ctx, 0)
+		r.ServeHTTP(w, req.WithContext(reqctx.WithEnv(ctx, test.bound)))
+		require.Equal(t, test.code, w.Code, w.Body.String())
+		require.Equal(t, test.env, usedEnv)
+	}
 }
 
 func (s *stubAIService) LLMInvoke(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (*aisvc.LLMInvokeResult, error) {

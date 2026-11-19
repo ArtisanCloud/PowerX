@@ -23,7 +23,12 @@ func key(id string) string {
 }
 func fingerprint(c *reqctx.CoreXClaims) []byte {
 	// 只绑定鉴权字段，不依赖 HTTP 中间件补全的数字 ID。
-	raw, _ := json.Marshal([]any{c.ID, c.Issuer, c.Subject, c.PluginID, c.TenantUUID, c.Audience, c.Scope, c.IssuedAt, c.ExpiresAt, c.UserUUID, c.MemberUUID, c.IsRoot, c.Platforms})
+	fields := []any{c.ID, c.Issuer, c.Subject, c.PluginID, c.TenantUUID, c.Audience, c.Scope, c.IssuedAt, c.ExpiresAt, c.UserUUID, c.MemberUUID, c.IsRoot, c.Platforms}
+	if c.Env != "" {
+		// 保留现有无环境绑定令牌的签发记录。
+		fields = append(fields, c.Env)
+	}
+	raw, _ := json.Marshal(fields)
 	sum := sha256.Sum256(raw)
 	return []byte(hex.EncodeToString(sum[:]))
 }

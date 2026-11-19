@@ -1,0 +1,24 @@
+openapi: 3.0.3
+info:
+  title: PowerX Default Text Model
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    ActiveModelOperation:
+      type: object
+      additionalProperties: false
+      required: [operation]
+      properties:
+        operation: {type: string, enum: [get_active_model]}
+    ActiveModelResult:
+      type: object
+      additionalProperties: false
+      required: [env, modality, model_key]
+      properties:
+        env: {type: string, enum: [dev, staging, prod]}
+        modality: {type: string, enum: [llm]}
+        model_key:
+          type: string
+          minLength: 3
+          description: The saved provider and native model identifier in provider/model form.

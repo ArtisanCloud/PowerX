@@ -42,6 +42,7 @@ type Service struct {
 	db       *gorm.DB
 	settings *agentsettings.AgentSettingService
 	profiles *repoai.AIModelProfileRepository
+	routes   *repoai.AIRoutePolicyRepository
 	catalog  *catalog.Registry
 }
 
@@ -59,6 +60,7 @@ func NewService(db *gorm.DB) *Service {
 		db:       db,
 		settings: agentsettings.NewAgentSettingService(db),
 		profiles: repoai.NewAIModelProfileRepository(db),
+		routes:   repoai.NewAIRoutePolicyRepository(db),
 	}
 }
 

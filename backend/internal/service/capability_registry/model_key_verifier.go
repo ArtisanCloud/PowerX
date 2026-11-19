@@ -49,8 +49,11 @@ func (v *TenantModelKeyVerifier) VerifyModelKey(ctx context.Context, tenantUUID,
 	if env == "" {
 		env = "default"
 	}
-	_, err := v.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, modality, provider, model)
-	if err != nil {
+	findProfile := v.profiles.FindByScopeModalityProviderModel
+	if resolvedLLMEnvironment(ctx) != "" {
+		findProfile = v.profiles.FindByEquivalentScopeModalityProviderModel
+	}
+	if _, err := findProfile(ctx, env, &tenantUUID, modality, provider, model); err != nil {
 		return fmt.Errorf("model_key %s not configured for tenant", modelKey)
 	}
 	return nil

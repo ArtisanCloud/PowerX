@@ -69,25 +69,9 @@ func (i *LLMStreamInvoker) InvokeCoreCapabilityStream(ctx context.Context, in ca
 	if i == nil || i.Service == nil {
 		return nil, MediaError(503, "AI_DEPENDENCY_UNAVAILABLE")
 	}
-	env := strings.TrimSpace(reqctx.GetEnv(ctx))
-	if env == "default" {
-		env = ""
-	}
-	if requested := in.Query["env"]; requested != "" {
-		if env != "" && env != requested {
-			return nil, MediaError(403, "AI_FORBIDDEN")
-		}
-		env = requested
-	}
-	if env == "" {
-		var err error
-		env, _, err = i.Service.ResolveTenantEnv(ctx, in.TenantUUID)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if env != "dev" && env != "staging" && env != "prod" {
-		return nil, MediaError(400, "AI_OPERATION_INVALID")
+	env, err := i.resolveEnvironment(ctx, in)
+	if err != nil {
+		return nil, err
 	}
 	streamCtx, cancel := context.WithCancel(ctx)
 	reader, writer := io.Pipe()
@@ -133,6 +117,36 @@ func (i *LLMStreamInvoker) InvokeCoreCapabilityStream(ctx context.Context, in ca
 		_ = emit("done", map[string]any{"ok": true, "text": text, "finish_reason": "stop"})
 	}()
 	return &llmStreamReadCloser{PipeReader: reader, cancel: cancel}, nil
+}
+
+func (i *LLMStreamInvoker) resolveEnvironment(ctx context.Context, in cap.CoreCapabilityInvokeInput) (string, error) {
+	if in.Env != "" {
+		return in.Env, nil
+	}
+	if claims := reqctx.GetClaims(ctx); claims != nil && claims.Issuer == "powerx-sts" {
+		return cap.ResolveSTSLLMEnvironment(ctx, in.TenantUUID, in.Query["env"], i.Service.ResolveTenantEnv)
+	}
+	env := strings.TrimSpace(reqctx.GetEnv(ctx))
+	if env == "default" {
+		env = ""
+	}
+	if requested := in.Query["env"]; requested != "" {
+		if env != "" && env != requested {
+			return "", MediaError(403, "AI_FORBIDDEN")
+		}
+		env = requested
+	}
+	if env == "" {
+		var err error
+		env, _, err = i.Service.ResolveTenantEnv(ctx, in.TenantUUID)
+		if err != nil {
+			return "", err
+		}
+	}
+	if env != "dev" && env != "staging" && env != "prod" {
+		return "", MediaError(400, "AI_OPERATION_INVALID")
+	}
+	return env, nil
 }
 
 type llmStreamReadCloser struct {

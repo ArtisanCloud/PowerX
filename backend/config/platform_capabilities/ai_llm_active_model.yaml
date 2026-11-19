@@ -1,0 +1,32 @@
+version: 1
+capabilities:
+- capability_id: com.corex.ai.llm.active_model.read
+  module: ai
+  title: Default Text Model Read
+  description: Read the text model saved as default in the authenticated tenant's AI environment.
+  permission_code: corex.ai.llm.active_model:read
+  agent_usable: false
+  risk_level: low
+  categories: [ai, llm]
+  intents: [ai.llm.active_model.read]
+  tool_scopes: [ai.llm.active_model.read]
+  policy:
+    prefer: core_internal
+  docs:
+  - docs/contracts/ai-llm-active-model.v1.openapi.yaml
+  - docs/contracts/ai-llm-active-model.v1.md
+  protocols:
+  - channel: core_internal
+    endpoint: core://ai/llm/active-model
+    method: INVOKE
+    schema_ref: docs/contracts/ai-llm-active-model.v1.openapi.yaml#/components/schemas/ActiveModelOperation
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: ai.llm.active_model.read
+  title_i18n:
+    en: Default Text Model Read
+    zh-CN: 读取默认文本模型
+  description_i18n:
+    en: Read the saved default text model for the current tenant and AI environment.
+    zh-CN: 读取当前租户在当前 AI 环境中保存的默认文本模型。
