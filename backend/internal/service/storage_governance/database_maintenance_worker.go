@@ -329,7 +329,7 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 			}
 		}
 	}()
-	e = s.maintenance.backend.Execute(command, v.ID, v.Mode, v.Before, v.Tables, func(id string, session repo.MaintenanceSession) error {
+	e = s.maintenance.backend.Execute(command, v.ID, v.Mode, v.Before, v.Tables, v.PeakBytes, func(id string, session repo.MaintenanceSession) error {
 		if e := s.maintenanceSafety(command, v, lease.ID()); e != nil {
 			return e
 		}

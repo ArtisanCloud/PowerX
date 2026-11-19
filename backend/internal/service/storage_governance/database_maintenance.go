@@ -230,16 +230,34 @@ func (s *Service) DatabaseMaintenance(ctx context.Context) (DatabaseMaintenanceS
 	return out, nil
 }
 
-func maintenancePeak(mode string, snapshot repo.MaintenanceSnapshot, ids []string) (int64, error) {
+const maintenanceSpaceUnit int64 = 64 << 20
+
+func maintenancePeak(mode string, snapshot repo.MaintenanceSnapshot, ids []string, disk storagebudget.Snapshot) (int64, error) {
 	need, e := maintenanceRequirement(mode, snapshot, ids)
 	if e != nil {
 		return 0, e
 	}
-	const unit = int64(64 << 20)
-	if need > math.MaxInt64-2*unit {
+	if need > math.MaxInt64-2*maintenanceSpaceUnit {
 		return 0, ErrStateUnavailable
 	}
-	return (need+unit-1)/unit*unit + unit, nil
+	peak := (need+maintenanceSpaceUnit-1)/maintenanceSpaceUnit*maintenanceSpaceUnit + maintenanceSpaceUnit
+	floor, e := storagebudget.ReclamationFloor(maintenanceOperation(mode), disk)
+	if e != nil {
+		return 0, e
+	}
+	available := disk.AvailableBytes - floor
+	if available < disk.ReservedBytes || available-disk.ReservedBytes < peak {
+		return 0, controlError(409, "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT")
+	}
+	if mode == repo.IncrementalMaintenanceMode {
+		// Keep an additional allocation unit unreserved when increasing the
+		// task budget. PostgreSQL's WAL setting is a planning bound on how
+		// much extra growth to reserve, not a hard limit on its files.
+		room := available - disk.ReservedBytes - maintenanceSpaceUnit
+		wal := min(snapshot.WALBudgetBytes, room-repo.IncrementalMaintenanceNonWALBytes)
+		peak = max(peak, wal/maintenanceSpaceUnit*maintenanceSpaceUnit+repo.IncrementalMaintenanceNonWALBytes)
+	}
+	return peak, nil
 }
 func maintenanceRequirement(mode string, snapshot repo.MaintenanceSnapshot, ids []string) (int64, error) {
 	if !repo.ValidMaintenanceRequest(mode, ids) {
@@ -280,7 +298,7 @@ func maintenanceRequirement(mode string, snapshot repo.MaintenanceSnapshot, ids 
 		if !snapshot.LocalDiskVerified {
 			return 0, repo.ErrMaintenanceDisk
 		}
-		return repo.IncrementalMaintenanceWorkingBytes, nil
+		return repo.IncrementalMaintenanceMinimumPeakBytes - maintenanceSpaceUnit, nil
 	}
 	if mode == "compact" {
 		if !snapshot.RewriteSafe || snapshot.WALBudgetBytes <= 0 {
@@ -313,20 +331,13 @@ func (s *Service) PreviewDatabaseMaintenance(ctx context.Context, in DatabaseMai
 	if e != nil {
 		return out, maintenanceError(e)
 	}
-	peak, e := maintenancePeak(in.Mode, snapshot, in.Tables)
-	if e != nil {
-		return out, maintenanceError(e)
-	}
 	budget, e := s.opts.Budget.Status(run)
 	if e != nil {
 		return out, maintenanceError(e)
 	}
-	floor, e := storagebudget.ReclamationFloor(maintenanceOperation(in.Mode), budget)
+	peak, e := maintenancePeak(in.Mode, snapshot, in.Tables, budget)
 	if e != nil {
 		return out, maintenanceError(e)
-	}
-	if budget.AvailableBytes-budget.ReservedBytes-floor < peak {
-		return out, controlError(409, "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT")
 	}
 	if in.Mode == repo.IncrementalMaintenanceMode {
 		if e = s.maintenance.backend.CheckIncremental(run, snapshot, in.Tables[0]); e != nil {

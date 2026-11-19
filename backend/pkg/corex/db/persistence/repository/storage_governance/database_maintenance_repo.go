@@ -59,6 +59,7 @@ type MaintenanceSnapshot struct {
 	RewriteSafe        bool               `json:"rewrite_safe"`
 	IncrementalProblem string             `json:"incremental_problem,omitempty"`
 }
+
 // MaintenanceIncrementalProgress 记录已经测量并确认的主表文件缩减。
 type MaintenanceIncrementalProgress struct {
 	SlicesCompleted    int   `json:"slices_completed"`
@@ -208,8 +209,8 @@ func SameMaintenanceTarget(expected, actual MaintenanceSnapshot, ids []string) b
 }
 
 // Execute 在单一固定连接上执行自动提交的维护语句；不把 VACUUM 放入事务块。
-func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode string, expected MaintenanceSnapshot, ids []string, before func(string, MaintenanceSession) error, after func(string) error, guard func(context.Context) error, progress func(MaintenanceIncrementalProgress) error) error {
-	if !ValidMaintenanceRequest(mode, ids) || mode == IncrementalMaintenanceMode && (guard == nil || progress == nil) {
+func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode string, expected MaintenanceSnapshot, ids []string, peakBytes int64, before func(string, MaintenanceSession) error, after func(string) error, guard func(context.Context) error, progress func(MaintenanceIncrementalProgress) error) error {
+	if !ValidMaintenanceRequest(mode, ids) || mode == IncrementalMaintenanceMode && (peakBytes < IncrementalMaintenanceMinimumPeakBytes || guard == nil || progress == nil) {
 		return ErrMaintenanceTarget
 	}
 	p, e := r.pool()
@@ -305,7 +306,7 @@ func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode
 		}
 		switch mode {
 		case IncrementalMaintenanceMode:
-			e = r.executeIncremental(ctx, c, actual, id, guard, progress)
+			e = r.executeIncremental(ctx, c, actual, id, peakBytes, guard, progress)
 		case "compact":
 			_, e = c.ExecContext(ctx, "VACUUM (FULL, ANALYZE) "+pgx.Identifier{r.schema, maintenanceTables[id]}.Sanitize())
 		default:

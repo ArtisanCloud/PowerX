@@ -15,7 +15,7 @@ import (
 type DatabaseMaintenanceBackend interface {
 	Inspect(context.Context) (repo.MaintenanceSnapshot, error)
 	CheckIncremental(context.Context, repo.MaintenanceSnapshot, string) error
-	Execute(context.Context, string, string, repo.MaintenanceSnapshot, []string, func(string, repo.MaintenanceSession) error, func(string) error, func(context.Context) error, func(repo.MaintenanceIncrementalProgress) error) error
+	Execute(context.Context, string, string, repo.MaintenanceSnapshot, []string, int64, func(string, repo.MaintenanceSession) error, func(string) error, func(context.Context) error, func(repo.MaintenanceIncrementalProgress) error) error
 	SessionActive(context.Context, repo.MaintenanceSession, bool) (bool, error)
 	RootActive(context.Context, uint64) error
 }
