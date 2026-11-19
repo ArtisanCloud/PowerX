@@ -164,7 +164,7 @@ func TestDatabaseMaintenanceNativePostgresAutocommitAndConnectionSettingsRestore
 	snapshot, e := r.Inspect(context.Background())
 	require.NoError(t, e)
 	var session repo.MaintenanceSession
-	require.NoError(t, r.Execute(context.Background(), uuid.NewString(), "reuse", snapshot, []string{"capability-invocation-traces"}, func(_ string, x repo.MaintenanceSession) error { session = x; return nil }, func(string) error { return nil }, nil, nil))
+	require.NoError(t, r.Execute(context.Background(), uuid.NewString(), "reuse", snapshot, []string{"capability-invocation-traces"}, 0, func(_ string, x repo.MaintenanceSession) error { session = x; return nil }, func(string) error { return nil }, nil, nil))
 	require.Equal(t, before, read())
 	active, e := r.SessionActive(context.Background(), session, false)
 	require.NoError(t, e)
@@ -186,7 +186,7 @@ func TestDatabaseMaintenanceNativePostgresCancellationUsesPinnedSessionAndPreser
 	ready := make(chan repo.MaintenanceSession, 1)
 	result := make(chan error, 1)
 	go func() {
-		result <- r.Execute(context.Background(), uuid.NewString(), "compact", snapshot, []string{"capability-invocation-traces"}, func(_ string, x repo.MaintenanceSession) error { ready <- x; return nil }, func(string) error { return nil }, nil, nil)
+		result <- r.Execute(context.Background(), uuid.NewString(), "compact", snapshot, []string{"capability-invocation-traces"}, 0, func(_ string, x repo.MaintenanceSession) error { ready <- x; return nil }, func(string) error { return nil }, nil, nil)
 	}()
 	session := <-ready
 	require.Eventually(t, func() bool {
@@ -290,15 +290,19 @@ FROM generate_series(1,160000) n`).Error)
 		t.Fatal("notification table measurement missing")
 		return 0
 	}
-	// Seed recycled segments before the run. Only the owned test PostgreSQL
-	// cluster receives the workload and checkpoint.
+	// Generate WAL while the index pass runs on the owned test server. The
+	// fixture leaves recycled segments unavailable so the WAL files grow.
 	emitWAL := func(megabytes int) {
 		t.Helper()
 		require.NoError(t, db.Exec(`SELECT count(pg_logical_emit_message(false,'powerx-test-only',repeat('w',1048576)))
 FROM generate_series(1,?)`, megabytes).Error)
 	}
-	emitWAL(320)
-	require.NoError(t, db.Exec("CHECKPOINT").Error)
+	walFileBytes := func() int64 {
+		t.Helper()
+		var size int64
+		require.NoError(t, db.Raw("SELECT COALESCE(sum(size),0)::bigint FROM pg_catalog.pg_ls_waldir()").Scan(&size).Error)
+		return size
+	}
 
 	// Keep the first index cleanup long enough to observe the WAL workload
 	// while VACUUM is executing. Reopen the fixture's idle connections.
@@ -312,7 +316,8 @@ FROM generate_series(1,?)`, megabytes).Error)
 	})
 	preview, e := s.PreviewDatabaseMaintenance(ctx, input)
 	require.NoError(t, e)
-	require.EqualValues(t, 256<<20, preview.PeakBytes)
+	require.EqualValues(t, 1152<<20, preview.PeakBytes)
+	initialWALFiles := walFileBytes()
 	req := DatabaseMaintenanceRequest{RequestID: uuid.NewString(), PreviewID: preview.ID, Confirm: true}
 	_, e = s.StartDatabaseMaintenanceRequest(ctx, req)
 	require.Equal(t, "DATABASE_MAINTENANCE_LOCK_CONFIRMATION_REQUIRED", dto.CodeOf(e))
@@ -330,7 +335,9 @@ WHERE a.application_name=? AND v.phase IN ('vacuuming indexes','scanning heap')`
 	var walBytes int64
 	require.NoError(t, db.Raw("SELECT pg_wal_lsn_diff(pg_current_wal_insert_lsn(), ?::pg_lsn)::bigint", vacuumStart).Scan(&walBytes).Error)
 	require.Greater(t, walBytes, int64(160<<20))
-	t.Logf("WAL generated after VACUUM started: %d bytes", walBytes)
+	fileGrowth := walFileBytes() - initialWALFiles
+	require.Greater(t, fileGrowth, int64(128<<20))
+	t.Logf("WAL generated after VACUUM started: %d bytes, WAL files grew by %d bytes", walBytes, fileGrowth)
 
 	var final DatabaseMaintenanceRun
 	require.Eventually(t, func() bool {
@@ -338,6 +345,7 @@ WHERE a.application_name=? AND v.phase IN ('vacuuming indexes','scanning heap')`
 		return e == nil && (final.State == "completed" || final.State == "failed" || final.State == "unconfirmed" || final.State == "cancelled")
 	}, 90*time.Second, 50*time.Millisecond)
 	require.Equal(t, "completed", final.State, "%+v", final)
+	require.Equal(t, preview.PeakBytes, final.PeakBytes)
 	require.Len(t, final.Steps, 1)
 	require.Equal(t, repo.IncrementalMaintenanceTable, final.Steps[0].TableID)
 	require.NotNil(t, final.After)

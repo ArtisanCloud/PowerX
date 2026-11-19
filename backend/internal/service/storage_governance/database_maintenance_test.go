@@ -28,6 +28,7 @@ import (
 
 type maintenanceFixtureBackend struct {
 	executed  atomic.Int32
+	peakBytes atomic.Int64
 	active    atomic.Bool
 	revoked   atomic.Bool
 	onExecute func(context.Context) error
@@ -53,7 +54,8 @@ func (f *maintenanceFixtureBackend) SessionActive(_ context.Context, _ repo.Main
 func (f *maintenanceFixtureBackend) CheckIncremental(context.Context, repo.MaintenanceSnapshot, string) error {
 	return nil
 }
-func (f *maintenanceFixtureBackend) Execute(ctx context.Context, id, mode string, expected repo.MaintenanceSnapshot, ids []string, before func(string, repo.MaintenanceSession) error, after func(string) error, _ func(context.Context) error, _ func(repo.MaintenanceIncrementalProgress) error) error {
+func (f *maintenanceFixtureBackend) Execute(ctx context.Context, id, mode string, expected repo.MaintenanceSnapshot, ids []string, peakBytes int64, before func(string, repo.MaintenanceSession) error, after func(string) error, _ func(context.Context) error, _ func(repo.MaintenanceIncrementalProgress) error) error {
+	f.peakBytes.Store(peakBytes)
 	f.active.Store(true)
 	defer f.active.Store(false)
 	for _, table := range ids {
@@ -185,6 +187,7 @@ func TestDatabaseMaintenanceWALStopPersistsMeasuredLimit(t *testing.T) {
 	require.Equal(t, "failed", finished.State)
 	require.Equal(t, "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET", finished.Problem)
 	require.Equal(t, stop, finished.WALStop)
+	require.Equal(t, run.PeakBytes, backend.peakBytes.Load())
 	status, e := s.opts.Budget.Status(context.Background())
 	require.NoError(t, e)
 	require.Empty(t, status.Active)
@@ -279,12 +282,12 @@ func TestDatabaseMaintenanceIncrementalUsesBoundedReservationAndRuntimeMargin(t 
 		require.NoError(t, unix.Statfs(c.FilesystemPath, &st))
 		available := int64(st.Bavail) * int64(st.Bsize)
 		c.MinFreeBytes = available + 1<<30
-		c.CriticalFreeBytes = available - 512<<20
+		c.CriticalFreeBytes = available - 620<<20
 	})
 	input := DatabaseMaintenancePreview{Mode: repo.IncrementalMaintenanceMode, Tables: []string{repo.IncrementalMaintenanceTable}}
 	preview, e := s.PreviewDatabaseMaintenance(controlRoot(), input)
 	require.NoError(t, e)
-	require.EqualValues(t, 256<<20, preview.PeakBytes)
+	require.EqualValues(t, 512<<20, preview.PeakBytes)
 	snapshot := budget.Snapshot{
 		CriticalFreeBytes: 10 << 30, AvailableBytes: (10 << 30) + (96 << 20),
 		Active:        []budget.Reservation{{ID: "own", PeakBytes: preview.PeakBytes}, {ID: "other", PeakBytes: 32 << 20}},
@@ -293,6 +296,37 @@ func TestDatabaseMaintenanceIncrementalUsesBoundedReservationAndRuntimeMargin(t 
 	require.NoError(t, maintenanceBudgetSafety(snapshot, input.Mode, "own"))
 	snapshot.AvailableBytes--
 	require.Equal(t, "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT", dto.CodeOf(maintenanceBudgetSafety(snapshot, input.Mode, "own")))
+}
+
+func TestDatabaseMaintenanceIncrementalPeakUsesAvailableDiskAndWALSetting(t *testing.T) {
+	_, backend, _ := maintenanceFixture(t)
+	snapshot := backend.snapshot
+	tables := []string{repo.IncrementalMaintenanceTable}
+	for _, test := range []struct {
+		name, problem     string
+		room, other, peak int64
+	}{
+		{name: "prod observation", room: 599, peak: 512},
+		{name: "counts other reservations", room: 599, other: 128, peak: 384},
+		{name: "legacy minimum", room: 256, peak: 256},
+		{name: "below minimum", room: 255, problem: "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT"},
+		{name: "bounded by planned WAL growth", room: 4096, peak: 1152},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			const floor int64 = 10 << 30
+			peak, e := maintenancePeak(repo.IncrementalMaintenanceMode, snapshot, tables, budget.Snapshot{
+				CriticalFreeBytes: floor,
+				AvailableBytes:    floor + test.room<<20,
+				ReservedBytes:     test.other << 20,
+			})
+			if test.problem != "" {
+				require.Equal(t, test.problem, dto.CodeOf(e))
+				return
+			}
+			require.NoError(t, e)
+			require.Equal(t, test.peak<<20, peak)
+		})
+	}
 }
 func TestDatabaseMaintenanceIdempotencyRegistrationAndSingleActiveJob(t *testing.T) {
 	s, f, bus := maintenanceFixture(t)

@@ -20,16 +20,18 @@ const (
 	// IncrementalMaintenanceTable is the invocation notification relation ID.
 	IncrementalMaintenanceTable = "capability-event-publications"
 	incrementalAuditTable       = "capability-invocation-traces"
-	// IncrementalMaintenanceWorkingBytes leaves space for small writes, WAL and index maintenance.
-	IncrementalMaintenanceWorkingBytes = 192 << 20
-	incrementalBlockBytes              = 8192
-	incrementalPages                   = 1024
-	incrementalPagesPerTransaction     = 32
-	incrementalRowsPerTransaction      = 500
-	incrementalVersionsPerTransaction  = 1200
-	incrementalSlicesPerRun            = 64
-	incrementalWALBurstBytes           = 96 << 20
-	incrementalWALGrowthBytes          = 128 << 20
+	// IncrementalMaintenanceNonWALBytes covers index growth, writes and runtime headroom.
+	IncrementalMaintenanceNonWALBytes = 128 << 20
+	// IncrementalMaintenanceMinimumPeakBytes preserves 128 MiB of WAL growth at minimum.
+	IncrementalMaintenanceMinimumPeakBytes = 256 << 20
+	incrementalBlockBytes                  = 8192
+	incrementalPages                       = 1024
+	incrementalPagesPerTransaction         = 32
+	incrementalRowsPerTransaction          = 500
+	incrementalVersionsPerTransaction      = 1200
+	incrementalSlicesPerRun                = 64
+	incrementalWALBurstBytes               = 96 << 20
+	incrementalRunLimit                    = 12 * time.Minute
 )
 
 var (
@@ -243,16 +245,17 @@ FROM pg_catalog.pg_current_wal_insert_lsn() AS lsn`, from).Scan(&s.lsn, &s.traff
 	return s, e
 }
 
-func (r *DatabaseMaintenanceRepository) executeIncremental(ctx context.Context, c *sql.Conn, snap MaintenanceSnapshot, id string, guard func(context.Context) error, progress func(MaintenanceIncrementalProgress) error) error {
+func (r *DatabaseMaintenanceRepository) executeIncremental(ctx context.Context, c *sql.Conn, snap MaintenanceSnapshot, id string, peakBytes int64, guard func(context.Context) error, progress func(MaintenanceIncrementalProgress) error) error {
 	table, fsm, e := r.incrementalReady(ctx, c, snap, id)
 	if e != nil {
 		return e
 	}
-	ctx, cancel := context.WithTimeout(ctx, 12*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, incrementalRunLimit)
 	defer cancel()
 	if _, e = c.ExecContext(ctx, `SELECT set_config('search_path','pg_catalog,pg_temp',false),
 set_config('lock_timeout','500ms',false),set_config('vacuum_cost_delay','5ms',false),
-set_config('vacuum_cost_limit','200',false),set_config('statement_timeout','180s',false)`); e != nil {
+set_config('vacuum_cost_limit','200',false),set_config('statement_timeout',$1,false)`,
+		fmt.Sprintf("%dms", incrementalRunLimit.Milliseconds())); e != nil {
 		return e
 	}
 	name := pgx.Identifier{r.schema, maintenanceTables[id]}.Sanitize()
@@ -267,7 +270,8 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 	if e != nil {
 		return e
 	}
-	walLimit := initialWAL.fileBytes + incrementalWALGrowthBytes
+	walGrowthBudget := peakBytes - IncrementalMaintenanceNonWALBytes
+	walLimit := initialWAL.fileBytes + walGrowthBudget
 	burstStart := initialWAL.lsn
 	check := func() error {
 		if e := guard(ctx); e != nil {
@@ -330,10 +334,13 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 	slices := min(incrementalSlicesPerRun, max(4, table.HeapBytes/(32<<20)))
 	deadline, _ := ctx.Deadline()
 	var reported MaintenanceIncrementalProgress
+	var previousSliceDuration time.Duration
 	for slice := int64(0); slice < slices; slice++ {
-		if slice > 0 && time.Until(deadline) < 4*time.Minute {
+		// A new index pass must fit the remaining time at the observed pace.
+		if slice > 0 && time.Until(deadline) < max(4*time.Minute, previousSliceDuration) {
 			return nil
 		}
+		started := time.Now()
 		if e = check(); e != nil {
 			return e
 		}
@@ -342,7 +349,7 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 		}
 		// Only verified net shrink can offset WAL growth. Recalculate using the
 		// current relation size so concurrent growth also consumes that credit.
-		walLimit = initialWAL.fileBytes + incrementalWALGrowthBytes + max(0, initialTotal-table.TotalBytes)
+		walLimit = initialWAL.fileBytes + walGrowthBudget + max(0, initialTotal-table.TotalBytes)
 		end := table.HeapBytes / incrementalBlockBytes
 		start := incrementalStart(end)
 		if e = incrementalPrecheck(ctx, c, name, fsm, table, start, end); e != nil {
@@ -382,6 +389,7 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 		if after.TotalBytes >= table.TotalBytes {
 			return ErrIncrementalNoReclaim
 		}
+		previousSliceDuration = time.Since(started)
 	}
 	return nil
 }
