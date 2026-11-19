@@ -19,11 +19,17 @@ it('validates original identity, monotonic steps and measured results', () => {
   expect(() => decodeDatabaseMaintenanceRun({ ...run, filesystem_available_after: -1 })).toThrow();
   expect(decodeDatabaseMaintenanceRun(maintenanceRun('unconfirmed')).after).toBeUndefined();
 });
-it('accepts incremental receipts only for the invocation-notification table', () => {
+it('accepts a single system table and validates measured incremental progress', () => {
   const run = { ...maintenanceRun(), mode: 'incremental' };
   expect(decodeDatabaseMaintenanceRun({ ...run, tables: ['capability-event-publications'] }).mode).toBe('incremental');
   expect(() => decodeDatabaseMaintenanceRun(run)).toThrow('DATABASE_MAINTENANCE_RESPONSE_INVALID');
-  expect(() => decodeDatabaseMaintenanceRun({ ...run, tables: ['capability-invocation-traces'] })).toThrow('DATABASE_MAINTENANCE_RESPONSE_INVALID');
+  const auditRun = { ...run, tables: ['capability-invocation-traces'], steps: [{
+    table_id: 'capability-invocation-traces', state: 'running', started_at: run.at,
+    incremental: { slices_completed: 1, heap_reclaimed_bytes: 8388608 },
+  }], state: 'running', preview_id: crypto.randomUUID() };
+  expect(decodeDatabaseMaintenanceRun(auditRun).steps[0]?.incremental?.heap_reclaimed_bytes).toBe(8388608);
+  expect(() => decodeDatabaseMaintenanceRun({ ...auditRun, steps: [{ ...auditRun.steps[0], incremental: { slices_completed: 1, heap_reclaimed_bytes: -1 } }] })).toThrow('DATABASE_MAINTENANCE_RESPONSE_INVALID');
+  expect(() => decodeDatabaseMaintenanceRun({ ...run, tables: ['orders'] })).toThrow('DATABASE_MAINTENANCE_RESPONSE_INVALID');
 });
 it('uses fixed maintenance contracts, no write retry, and the same request identity', async () => {
   const service = useStorageDatabaseMaintenanceService(), run = maintenanceRun('queued'), signal = new AbortController().signal;

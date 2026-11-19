@@ -51,7 +51,7 @@ func maintenanceNative(t *testing.T) (*Service, *repo.DatabaseMaintenanceReposit
 func maintenanceDataDigest(t *testing.T, db *gorm.DB, name string) string {
 	t.Helper()
 	var value string
-	require.NoError(t, db.Raw("SELECT md5(string_agg(id::text||':'||payload,',' ORDER BY id)) FROM "+pgx.Identifier{coremodel.PowerXSchema, name}.Sanitize()).Scan(&value).Error)
+	require.NoError(t, db.Raw("SELECT md5(string_agg(md5(entry::text),'' ORDER BY id)) FROM "+pgx.Identifier{coremodel.PowerXSchema, name}.Sanitize()+" entry").Scan(&value).Error)
 	return value
 }
 
@@ -164,7 +164,7 @@ func TestDatabaseMaintenanceNativePostgresAutocommitAndConnectionSettingsRestore
 	snapshot, e := r.Inspect(context.Background())
 	require.NoError(t, e)
 	var session repo.MaintenanceSession
-	require.NoError(t, r.Execute(context.Background(), uuid.NewString(), "reuse", snapshot, []string{"capability-invocation-traces"}, func(_ string, x repo.MaintenanceSession) error { session = x; return nil }, func(string) error { return nil }, nil))
+	require.NoError(t, r.Execute(context.Background(), uuid.NewString(), "reuse", snapshot, []string{"capability-invocation-traces"}, func(_ string, x repo.MaintenanceSession) error { session = x; return nil }, func(string) error { return nil }, nil, nil))
 	require.Equal(t, before, read())
 	active, e := r.SessionActive(context.Background(), session, false)
 	require.NoError(t, e)
@@ -186,7 +186,7 @@ func TestDatabaseMaintenanceNativePostgresCancellationUsesPinnedSessionAndPreser
 	ready := make(chan repo.MaintenanceSession, 1)
 	result := make(chan error, 1)
 	go func() {
-		result <- r.Execute(context.Background(), uuid.NewString(), "compact", snapshot, []string{"capability-invocation-traces"}, func(_ string, x repo.MaintenanceSession) error { ready <- x; return nil }, func(string) error { return nil }, nil)
+		result <- r.Execute(context.Background(), uuid.NewString(), "compact", snapshot, []string{"capability-invocation-traces"}, func(_ string, x repo.MaintenanceSession) error { ready <- x; return nil }, func(string) error { return nil }, nil, nil)
 	}()
 	session := <-ready
 	require.Eventually(t, func() bool {
@@ -229,12 +229,12 @@ func TestDatabaseMaintenanceNativePostgresIncrementalReclaimsOnlyNotificationTai
 	require.NoError(t, db.Exec("INSERT INTO "+name+` (id,uuid,created_at,updated_at,tenant_uuid,topic,payload,status,trace_id,record_class,terminal_at)
 SELECT n,md5(n::text)::uuid,now(),now(),md5('fixture-tenant')::uuid::text,
  '_topic.integration.gateway.invocation.succeeded',jsonb_build_object('body',repeat(md5(n::text),12),'terminal',true),
- 'quarantined',md5(n::text),CASE WHEN n=80000 THEN 'legacy_unclassified' ELSE 'capability_invocation_notification' END,now()
-FROM generate_series(1,80000) n`).Error)
+ 'quarantined',md5(n::text),CASE WHEN n=160000 THEN 'legacy_unclassified' ELSE 'capability_invocation_notification' END,now()
+FROM generate_series(1,160000) n`).Error)
 	for i, columns := range []string{"uuid", "trace_id", "status", "topic", "deleted_at", "tenant_uuid", "tenant_uuid,status,terminal_at"} {
 		require.NoError(t, db.Exec(fmt.Sprintf("CREATE INDEX notification_test_%d ON %s (%s)", i, name, columns)).Error)
 	}
-	require.NoError(t, db.Exec("DELETE FROM "+name+" WHERE id<=47000").Error)
+	require.NoError(t, db.Exec("DELETE FROM "+name+" WHERE id<=96000").Error)
 	require.NoError(t, db.Exec("VACUUM (TRUNCATE FALSE, INDEX_CLEANUP ON, PARALLEL 0) "+name).Error)
 	require.NoError(t, db.Exec("CREATE TABLE "+business+" (id int PRIMARY KEY, amount int); INSERT INTO "+business+" VALUES(901,123)").Error)
 
@@ -244,7 +244,8 @@ FROM generate_series(1,80000) n`).Error)
 		t.Skip("incremental compaction requires PostgreSQL 16")
 	}
 	require.NoError(t, db.Exec("CREATE EXTENSION IF NOT EXISTS pg_freespacemap").Error)
-	businessBefore := maintenanceDataDigest(t, db, "capability_registry_invocation_traces")
+	auditBefore := maintenanceDataDigest(t, db, "capability_registry_invocation_traces")
+	businessBefore := maintenanceDataDigest(t, db, "orders")
 	digest := func() string {
 		var out string
 		require.NoError(t, db.Raw("SELECT md5(string_agg(md5(entry::text),'' ORDER BY id)) FROM "+name+" entry").Scan(&out).Error)
@@ -252,7 +253,7 @@ FROM generate_series(1,80000) n`).Error)
 	}
 	protectedDigest := digest()
 	input := DatabaseMaintenancePreview{Mode: repo.IncrementalMaintenanceMode, Tables: []string{repo.IncrementalMaintenanceTable}}
-	for _, ids := range [][]string{{"orders"}, {"capability-invocation-traces"}, {repo.IncrementalMaintenanceTable, "capability-invocation-traces"}} {
+	for _, ids := range [][]string{{"orders"}, {repo.IncrementalMaintenanceTable, "capability-invocation-traces"}} {
 		_, e := s.PreviewDatabaseMaintenance(ctx, DatabaseMaintenancePreview{Mode: input.Mode, Tables: ids})
 		require.Equal(t, "DATABASE_MAINTENANCE_INPUT_INVALID", dto.CodeOf(e))
 	}
@@ -289,38 +290,125 @@ FROM generate_series(1,80000) n`).Error)
 		t.Fatal("notification table measurement missing")
 		return 0
 	}
-	var previous int64
-	for batch := 1; batch <= 2; batch++ {
-		preview, e := s.PreviewDatabaseMaintenance(ctx, input)
-		require.NoError(t, e)
-		require.EqualValues(t, 256<<20, preview.PeakBytes)
-		req := DatabaseMaintenanceRequest{RequestID: uuid.NewString(), PreviewID: preview.ID, Confirm: true}
-		_, e = s.StartDatabaseMaintenanceRequest(ctx, req)
-		require.Equal(t, "DATABASE_MAINTENANCE_LOCK_CONFIRMATION_REQUIRED", dto.CodeOf(e))
-		req.ExclusiveLockConfirmed = true
-		_, e = s.StartDatabaseMaintenanceRequest(ctx, req)
-		require.NoError(t, e)
-		var final DatabaseMaintenanceRun
-		require.Eventually(t, func() bool {
-			final, e = s.DatabaseMaintenanceRun(ctx, req.RequestID)
-			return e == nil && (final.State == "completed" || final.State == "failed" || final.State == "unconfirmed" || final.State == "cancelled")
-		}, 30*time.Second, 50*time.Millisecond)
-		require.Equal(t, "completed", final.State, "%+v", final)
-		require.Len(t, final.Steps, 1)
-		require.Equal(t, repo.IncrementalMaintenanceTable, final.Steps[0].TableID)
-		require.NotNil(t, final.After)
-		beforeBytes, afterBytes := heapBytes(final.Before), heapBytes(*final.After)
-		if batch > 1 {
-			require.Equal(t, previous, beforeBytes)
-		}
-		require.Positive(t, afterBytes)
-		require.Less(t, afterBytes, beforeBytes)
-		previous = afterBytes
-		t.Logf("batch %d notification heap: %d -> %d bytes", batch, beforeBytes, afterBytes)
-		require.Equal(t, expected, digest())
-		require.Equal(t, businessBefore, maintenanceDataDigest(t, db, "capability_registry_invocation_traces"))
-	}
+	load := pgx.Identifier{coremodel.PowerXSchema, "wal_load_fixture"}.Sanitize()
+	require.NoError(t, db.Exec("CREATE TABLE "+load+" (payload text NOT NULL) WITH (autovacuum_enabled=false); ALTER TABLE "+load+" ALTER COLUMN payload SET STORAGE PLAIN").Error)
+	// Make recycled WAL available before generating a burst. The production
+	// worker observes natural recycling and never forces a checkpoint.
+	require.NoError(t, db.Exec("CHECKPOINT").Error)
+	var walStart string
+	require.NoError(t, db.Raw("SELECT pg_current_wal_insert_lsn()::text").Scan(&walStart).Error)
+	preview, e := s.PreviewDatabaseMaintenance(ctx, input)
+	require.NoError(t, e)
+	require.EqualValues(t, 256<<20, preview.PeakBytes)
+	req := DatabaseMaintenanceRequest{RequestID: uuid.NewString(), PreviewID: preview.ID, Confirm: true}
+	_, e = s.StartDatabaseMaintenanceRequest(ctx, req)
+	require.Equal(t, "DATABASE_MAINTENANCE_LOCK_CONFIRMATION_REQUIRED", dto.CodeOf(e))
+	req.ExclusiveLockConfirmed = true
+	_, e = s.StartDatabaseMaintenanceRequest(ctx, req)
+	require.NoError(t, e)
+	require.Eventually(t, func() bool {
+		run, readError := s.DatabaseMaintenanceRun(ctx, req.RequestID)
+		return readError == nil && run.State == "running" && len(run.Steps) == 1
+	}, 10*time.Second, 10*time.Millisecond)
+	require.NoError(t, db.Exec("INSERT INTO "+load+" SELECT repeat(md5(n::text),50) FROM generate_series(1,57000) n").Error)
+
+	var final DatabaseMaintenanceRun
+	require.Eventually(t, func() bool {
+		final, e = s.DatabaseMaintenanceRun(ctx, req.RequestID)
+		return e == nil && (final.State == "completed" || final.State == "failed" || final.State == "unconfirmed" || final.State == "cancelled")
+	}, 90*time.Second, 50*time.Millisecond)
+	require.Equal(t, "completed", final.State, "%+v", final)
+	require.Len(t, final.Steps, 1)
+	require.Equal(t, repo.IncrementalMaintenanceTable, final.Steps[0].TableID)
+	require.NotNil(t, final.After)
+	beforeBytes, afterBytes := heapBytes(final.Before), heapBytes(*final.After)
+	require.Positive(t, afterBytes)
+	require.Less(t, afterBytes, beforeBytes)
+	require.NotNil(t, final.Steps[0].Incremental)
+	require.Equal(t, 4, final.Steps[0].Incremental.SlicesCompleted)
+	require.Equal(t, beforeBytes-afterBytes, final.Steps[0].Incremental.HeapReclaimedBytes)
+	t.Logf("notification heap after %d slices: %d -> %d bytes", final.Steps[0].Incremental.SlicesCompleted, beforeBytes, afterBytes)
+	require.Equal(t, expected, digest())
+	require.Equal(t, auditBefore, maintenanceDataDigest(t, db, "capability_registry_invocation_traces"))
+	require.Equal(t, businessBefore, maintenanceDataDigest(t, db, "orders"))
+	var walBytes int64
+	require.NoError(t, db.Raw("SELECT pg_wal_lsn_diff(pg_current_wal_insert_lsn(), ?::pg_lsn)::bigint", walStart).Scan(&walBytes).Error)
+	require.Greater(t, walBytes, int64(96<<20))
+
+	t.Logf("WAL generated during bounded shrink: %d bytes", walBytes)
+
 	var amount int
 	require.NoError(t, db.Raw("SELECT amount FROM "+business+" WHERE id=901").Scan(&amount).Error)
 	require.Equal(t, 123, amount)
+}
+
+func TestDatabaseMaintenanceNativePostgresIncrementalPreservesAuditOnPartialStop(t *testing.T) {
+	s, _ := maintenanceNative(t)
+	db := s.opts.DB
+	ctx := controlRoot()
+	var version string
+	require.NoError(t, db.Raw("SHOW server_version").Scan(&version).Error)
+	if !strings.HasPrefix(version, "16.") {
+		t.Skip("incremental compaction requires PostgreSQL 16")
+	}
+	const auditID = "capability-invocation-traces"
+	const auditName = "capability_registry_invocation_traces"
+	name := pgx.Identifier{coremodel.PowerXSchema, auditName}.Sanitize()
+	require.NoError(t, db.Exec("CREATE EXTENSION IF NOT EXISTS pg_freespacemap").Error)
+	require.NoError(t, db.Exec("DROP TABLE "+name+"; CREATE TABLE "+name+` (
+ id bigint PRIMARY KEY, uuid uuid, created_at timestamptz, updated_at timestamptz, deleted_at timestamptz,
+ tenant_uuid char(36) NOT NULL, trace_id varchar(128), caller_subject varchar(512), plugin_id varchar(128),
+ capability_id varchar(256), protocol_used varchar(32), status varchar(32) NOT NULL, latency_ms bigint,
+ fallback_used bool, event_published bool, event_publication_id uuid, request_payload jsonb, response_payload jsonb,
+ error_summary text, record_class varchar(64) NOT NULL, completed_at timestamptz
+) WITH (autovacuum_enabled=false)`).Error)
+	require.NoError(t, db.Exec("INSERT INTO "+name+` (id,uuid,created_at,updated_at,tenant_uuid,trace_id,caller_subject,plugin_id,capability_id,
+ protocol_used,status,latency_ms,fallback_used,event_published,request_payload,response_payload,record_class,completed_at)
+ SELECT n,md5(n::text)::uuid,now(),now(),md5('tenant')::uuid::text,md5(n::text),'caller','plugin','capability','grpc',
+ 'completed',25,false,true,jsonb_build_object('body',repeat(md5(n::text),12)),NULL,
+ CASE WHEN n=138000 THEN 'legacy_unclassified' ELSE 'capability_invocation_audit' END,now()
+ FROM generate_series(1,160000) n`).Error)
+	for i, columns := range []string{"uuid", "deleted_at", "tenant_uuid", "trace_id", "caller_subject", "plugin_id",
+		"capability_id", "status", "event_publication_id", "tenant_uuid,status,completed_at"} {
+		require.NoError(t, db.Exec(fmt.Sprintf("CREATE INDEX audit_test_%d ON %s (%s)", i, name, columns)).Error)
+	}
+	require.NoError(t, db.Exec("DELETE FROM "+name+" WHERE id<=96000").Error)
+	require.NoError(t, db.Exec("VACUUM (TRUNCATE FALSE, INDEX_CLEANUP ON, PARALLEL 0) "+name).Error)
+	businessName := pgx.Identifier{coremodel.PowerXSchema, "orders"}.Sanitize()
+	require.NoError(t, db.Exec("CREATE TABLE "+businessName+" (id int PRIMARY KEY, amount int); INSERT INTO "+businessName+" VALUES(1,987)").Error)
+	auditDigest := maintenanceDataDigest(t, db, auditName)
+	businessDigest := maintenanceDataDigest(t, db, "orders")
+	notificationDigest := maintenanceDataDigest(t, db, "capability_registry_event_publications")
+
+	runCtx, stop := context.WithCancel(context.Background())
+	s.StartControl(runCtx, nil)
+	s.StartDatabaseMaintenance(runCtx, nil)
+	t.Cleanup(func() {
+		stop()
+		<-s.maintenance.done
+		<-s.opts.Control.Done()
+	})
+	preview, e := s.PreviewDatabaseMaintenance(ctx, DatabaseMaintenancePreview{Mode: repo.IncrementalMaintenanceMode, Tables: []string{auditID}})
+	require.NoError(t, e)
+	req := DatabaseMaintenanceRequest{RequestID: uuid.NewString(), PreviewID: preview.ID, Confirm: true, ExclusiveLockConfirmed: true}
+	_, e = s.StartDatabaseMaintenanceRequest(ctx, req)
+	require.NoError(t, e)
+	var final DatabaseMaintenanceRun
+	require.Eventually(t, func() bool {
+		final, e = s.DatabaseMaintenanceRun(ctx, req.RequestID)
+		return e == nil && (final.State == "failed" || final.State == "completed" || final.State == "unconfirmed" || final.State == "cancelled")
+	}, 90*time.Second, 50*time.Millisecond)
+	require.Equal(t, "failed", final.State, "%+v", final)
+	require.Equal(t, "DATABASE_MAINTENANCE_INCREMENTAL_PROTECTED_TAIL", final.Problem)
+	require.Len(t, final.Steps, 1)
+	require.Equal(t, auditID, final.Steps[0].TableID)
+	progress := final.Steps[0].Incremental
+	require.NotNil(t, progress)
+	require.Equal(t, 1, progress.SlicesCompleted)
+	require.EqualValues(t, 8<<20, progress.HeapReclaimedBytes)
+	require.NotNil(t, final.After)
+	require.Equal(t, auditDigest, maintenanceDataDigest(t, db, auditName))
+	require.Equal(t, businessDigest, maintenanceDataDigest(t, db, "orders"))
+	require.Equal(t, notificationDigest, maintenanceDataDigest(t, db, "capability_registry_event_publications"))
+	t.Logf("audit heap reclaimed before protected tail: %d bytes", progress.HeapReclaimedBytes)
 }

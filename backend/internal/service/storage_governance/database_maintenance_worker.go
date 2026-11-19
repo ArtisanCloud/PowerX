@@ -356,6 +356,18 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 		return e
 	}, func(ctx context.Context) error {
 		return s.maintenanceSafety(ctx, v, lease.ID())
+	}, func(progress repo.MaintenanceIncrementalProgress) error {
+		_, e := s.maintenanceDeliveryChange(command, item, v.ID, false, func(x *DatabaseMaintenanceRun) error {
+			if x.State == "cancel_requested" {
+				return controlError(409, "DATABASE_MAINTENANCE_CANCELLED")
+			}
+			if x.State != "running" || len(x.Steps) != 1 || x.Steps[0].State != "running" {
+				return repo.ErrRevisionConflict
+			}
+			x.Steps[0].Incremental = &progress
+			return nil
+		})
+		return e
 	})
 	close(done)
 	<-monitorDone

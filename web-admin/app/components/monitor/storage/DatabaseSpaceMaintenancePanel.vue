@@ -14,7 +14,8 @@
       <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-sm text-muted">{{ t('storageGov.dbMaintenance.databaseSize') }}</p><p class="mt-1 text-xl font-semibold tabular-nums">{{ bytes(status?.snapshot?.database_bytes) }}</p></div><p class="max-w-xl text-sm text-muted">{{ t('storageGov.dbMaintenance.scope') }}</p></div>
       <fieldset class="mt-5 space-y-3" :disabled="busy || !!pending || intentDamaged"><legend class="mb-2 text-sm font-medium">{{ t('storageGov.dbMaintenance.selectTables') }}</legend>
         <label v-for="row in availableTables" :key="row.id" class="flex min-w-0 items-start gap-3 rounded-lg border border-default p-3">
-          <input v-model="selectedForMode" type="checkbox" :value="row.id" :disabled="incremental || !row.can_maintain || !row.indexes_valid" class="mt-1 size-4 shrink-0 accent-emerald-500" :data-testid="'maintenance-table-' + row.id" />
+          <input v-if="incremental" v-model="incrementalTable" type="radio" name="incremental-maintenance-table" :value="row.id" :disabled="!row.can_maintain || !row.indexes_valid" class="mt-1 size-4 shrink-0 accent-emerald-500" :data-testid="'maintenance-table-' + row.id" />
+          <input v-else v-model="selected" type="checkbox" :value="row.id" :disabled="!row.can_maintain || !row.indexes_valid" class="mt-1 size-4 shrink-0 accent-emerald-500" :data-testid="'maintenance-table-' + row.id" />
           <span class="min-w-0 flex-1"><span class="block font-medium">{{ tableLabel(row.id) }}</span><span class="mt-1 block text-xs text-muted">{{ t('storageGov.dbMaintenance.deadEstimate', { count: row.dead_rows_estimate }) }}</span><span v-if="!row.can_maintain || !row.indexes_valid" class="block text-xs text-warning">{{ problemText(!row.can_maintain ? 'DATABASE_MAINTENANCE_OWNER_REQUIRED' : 'DATABASE_MAINTENANCE_INDEXES_INVALID') }}</span></span>
           <span class="shrink-0 text-sm tabular-nums">{{ bytes(row.total_bytes) }}</span>
         </label>
@@ -30,7 +31,7 @@
       <template #body><div v-if="preview" class="space-y-4" data-testid="maintenance-preview-detail">
         <p class="font-medium">{{ t('storageGov.dbMaintenance.modes.' + preview.mode) }}</p><ul class="space-y-2"><li v-for="id in preview.tables" :key="id">{{ tableLabel(id) }}</li></ul>
         <dl class="grid grid-cols-2 gap-3 text-sm"><dt>{{ t('storageGov.dbMaintenance.workSpace') }}</dt><dd class="tabular-nums">{{ bytes(preview.peak_bytes) }}</dd><dt>{{ t('storageGov.dbMaintenance.expires') }}</dt><dd>{{ new Date(preview.expires_at!).toLocaleTimeString() }}</dd></dl>
-        <UAlert v-if="preview.mode !== 'reuse'" color="warning" :title="t('storageGov.dbMaintenance.lockTitle')" :description="t('storageGov.dbMaintenance.' + (preview.mode === 'incremental' ? 'incrementalLockHint' : 'lockHint'))" />
+        <UAlert v-if="preview.mode !== 'reuse'" color="warning" :title="t('storageGov.dbMaintenance.' + (preview.mode === 'incremental' ? 'incrementalLockTitle' : 'lockTitle'))" :description="t('storageGov.dbMaintenance.' + (preview.mode === 'incremental' ? 'incrementalLockHint' : 'lockHint'))" />
         <UCheckbox v-model="confirmed" :disabled="busy || !!pending" :label="t('storageGov.dbMaintenance.confirm')" data-testid="maintenance-confirm" />
         <UCheckbox v-if="preview.mode !== 'reuse'" v-model="exclusiveConfirmed" :disabled="busy || !!pending" :label="t('storageGov.dbMaintenance.confirmLock')" data-testid="maintenance-confirm-lock" />
         <p v-if="expired" role="alert" class="text-warning">{{ t('storageGov.dbMaintenance.expired') }}</p><p v-if="error" role="alert" class="text-error">{{ error }}</p>
@@ -71,11 +72,14 @@ const detail = computed(() => runs.value[detailID.value]);
 const history = computed(() => Object.values(runs.value).filter(x => !['preview', 'consumed'].includes(x.state)).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)));
 const notificationTable = 'capability-event-publications';
 const incremental = computed(() => mode.value === 'incremental');
-const availableTables = computed(() => (status.value?.snapshot?.tables || []).filter(row => !incremental.value || row.id === notificationTable));
-const selectedForMode = computed<MaintenanceTableID[]>({
-  get: () => incremental.value ? availableTables.value.map(row => row.id) : selected.value,
-  set: value => { if (!incremental.value) selected.value = value; },
-});
+const incrementalTable = ref<MaintenanceTableID>(notificationTable);
+const availableTables = computed(() => (status.value?.snapshot?.tables || []).filter(row =>
+  !incremental.value || row.id === notificationTable || row.incremental_problem !== undefined,
+));
+const selectedForMode = computed(() => incremental.value
+  ? availableTables.value.filter(row => row.id === incrementalTable.value).map(row => row.id)
+  : selected.value,
+);
 const modeProblem = computed(() => {
   const snapshot = status.value?.snapshot;
   if (mode.value === 'reuse' || !snapshot) return '';
@@ -83,10 +87,10 @@ const modeProblem = computed(() => {
     return 'DATABASE_MAINTENANCE_DISK_UNVERIFIED';
   }
   if (incremental.value) {
-    const notification = availableTables.value[0];
-    if (notification && !notification.can_maintain) return 'DATABASE_MAINTENANCE_OWNER_REQUIRED';
-    if (notification && !notification.indexes_valid) return 'DATABASE_MAINTENANCE_INDEXES_INVALID';
-    return snapshot.incremental_problem || '';
+    const target = availableTables.value.find(row => row.id === incrementalTable.value);
+    if (target && !target.can_maintain) return 'DATABASE_MAINTENANCE_OWNER_REQUIRED';
+    if (target && !target.indexes_valid) return 'DATABASE_MAINTENANCE_INDEXES_INVALID';
+    return target?.incremental_problem ?? snapshot.incremental_problem ?? '';
   }
   return snapshot.rewrite_safe ? '' : 'DATABASE_MAINTENANCE_WAL_PROTECTED';
 });
@@ -119,7 +123,7 @@ async function load() {
     status.value = next; next.runs.forEach(accept); if (next.active) accept(next.active);
     if (!initialized) { initialized = true; selected.value = next.snapshot?.tables.filter(x => x.can_maintain && x.indexes_valid).map(x => x.id) || [];
       try { pending.value = readMaintenanceIntent(window.sessionStorage, identity()); } catch (e) { intentDamaged.value = true; error.value = problemText(e); }
-      if (pending.value) { const known = runs.value[pending.value.requestId]; if (known) { selected.value = [...known.tables]; mode.value = known.mode; accept(known); } }
+      if (pending.value) { const known = runs.value[pending.value.requestId]; if (known) { if (known.mode === 'incremental') incrementalTable.value = known.tables[0]!; else selected.value = [...known.tables]; mode.value = known.mode; accept(known); } }
     }
   } catch (e) { if (!disposed && !signal.aborted) error.value = problemText(e); }
   finally { if (!disposed && !signal.aborted) loading.value = false; }

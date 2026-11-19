@@ -14,8 +14,8 @@ import (
 // DatabaseMaintenanceBackend 隔离 PostgreSQL 自动提交操作，测试不使用日常数据库。
 type DatabaseMaintenanceBackend interface {
 	Inspect(context.Context) (repo.MaintenanceSnapshot, error)
-	CheckIncremental(context.Context, repo.MaintenanceSnapshot) error
-	Execute(context.Context, string, string, repo.MaintenanceSnapshot, []string, func(string, repo.MaintenanceSession) error, func(string) error, func(context.Context) error) error
+	CheckIncremental(context.Context, repo.MaintenanceSnapshot, string) error
+	Execute(context.Context, string, string, repo.MaintenanceSnapshot, []string, func(string, repo.MaintenanceSession) error, func(string) error, func(context.Context) error, func(repo.MaintenanceIncrementalProgress) error) error
 	SessionActive(context.Context, repo.MaintenanceSession, bool) (bool, error)
 	RootActive(context.Context, uint64) error
 }
@@ -39,10 +39,11 @@ type databaseMaintenance struct {
 	wake    chan struct{}
 }
 type DatabaseMaintenanceStep struct {
-	TableID    string     `json:"table_id"`
-	State      string     `json:"state"`
-	StartedAt  time.Time  `json:"started_at"`
-	FinishedAt *time.Time `json:"finished_at,omitempty"`
+	TableID     string                               `json:"table_id"`
+	State       string                               `json:"state"`
+	StartedAt   time.Time                            `json:"started_at"`
+	FinishedAt  *time.Time                           `json:"finished_at,omitempty"`
+	Incremental *repo.MaintenanceIncrementalProgress `json:"incremental,omitempty"`
 }
 type DatabaseMaintenanceRun struct {
 	ID                        string                    `json:"id"`
