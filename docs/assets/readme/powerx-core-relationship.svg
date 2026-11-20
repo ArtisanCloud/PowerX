@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 704 216" width="704" height="216" role="img" aria-labelledby="title desc">
+  <title id="title">PowerX Core 连接业务插件、工作流与智能体</title>
+  <desc id="desc">左侧的业务插件向 PowerX Core 注册能力；右侧的工作流和智能体通过 PowerX Core 按授权调用这些能力。</desc>
+  <rect x="1" y="1" width="702" height="214" rx="24" fill="#f8fbf9" stroke="#d5e4da" stroke-width="2"/>
+  <rect x="40" y="55" width="157" height="106" rx="19" fill="#e8f2ec"/>
+  <rect x="507" y="55" width="157" height="106" rx="19" fill="#e8f2ec"/>
+  <rect x="267" y="23" width="170" height="170" rx="35" fill="#deeee3"/>
+  <rect x="280" y="36" width="144" height="144" rx="26" fill="#12482f"/>
+  <g fill="none" stroke="#187046" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M201 108h73m-10-7 10 7-10 7M503 108h-73m10-7-10 7 10 7"/>
+    <rect x="102" y="73" width="13" height="13" rx="2.5"/><rect x="121" y="73" width="13" height="13" rx="2.5"/>
+    <rect x="102" y="92" width="13" height="13" rx="2.5"/><rect x="121" y="92" width="13" height="13" rx="2.5"/>
+    <path d="M572 82h12m7 13h11m-18-13 7 13"/>
+    <circle cx="568" cy="82" r="4"/><circle cx="584" cy="82" r="4"/><circle cx="606" cy="95" r="4"/>
+  </g>
+  <g fill="none" stroke="#a9f0c3" stroke-width="3" stroke-linejoin="round">
+    <path d="m352 58 22 12-22 12-22-12zm-22 22 22 12 22-12m-44 10 22 12 22-12"/>
+  </g>
+  <g text-anchor="middle" font-family="system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif">
+    <g fill="#173a29" font-size="25" font-weight="600">
+      <text x="118.5" y="138">业务插件</text>
+      <text x="585.5" y="138">流程 / 智能体</text>
+    </g>
+    <text x="352" y="127" fill="#fff" font-size="29" font-weight="650">PowerX</text>
+    <text x="352" y="152" fill="#c2eed1" font-size="18" font-weight="500" letter-spacing="2">CORE</text>
+    <g fill="#24583d" font-size="21" font-weight="600">
+      <text x="235" y="154">注册</text>
+      <text x="235" y="178">能力</text>
+      <text x="469" y="154">按授权</text>
+      <text x="469" y="178">调用</text>
+    </g>
+  </g>
+</svg>
