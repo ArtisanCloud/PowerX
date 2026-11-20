@@ -6,9 +6,7 @@
 
 [快速开始](#快速开始) · [插件开发](https://powerx-doc.artisan-cloud.com/zh/developers/) · [产品官网](https://artisan-cloud.com/products/powerx-base) · [English](./README-en.md)
 
-![PowerX 插件市场：查看插件版本与启用状态](https://powerx-doc.artisan-cloud.com/images/readme/zh/plugin-market.png)
-
-*插件市场界面示例，展示插件的版本和启用状态。截图中的插件不代表默认安装或随 Core 开源。*
+![PowerX Core 关系图：业务插件注册能力，工作流和智能体按授权调用](./docs/assets/readme/powerx-core-relationship.svg)
 
 ## 快速开始
 
@@ -20,9 +18,19 @@
 
 第一次跑起来，可以先登录管理后台，打开「开放市场 → 插件市场」，看看当前环境有哪些插件、版本和启用状态。
 
+## 产品实景：插件市场
+
+![PowerX 插件市场：查看插件版本与启用状态](https://powerx-doc.artisan-cloud.com/images/readme/zh/plugin-market.png)
+
+*插件市场界面示例，展示插件的版本和启用状态。截图中的插件不代表默认安装或随 Core 开源。*
+
 ## 从一个业务问题开始
 
-**这周，哪些客户需要跟进？** 可以先用业务插件记录客户、最近沟通和已有待办，再用流程串起「整理信息 → 团队确认 → 创建跟进任务」。需要 AI 时，再让智能体按权限整理上下文、建议下一步，由团队确认。
+> **这周，哪些客户需要跟进？**
+
+1. **查客户上下文**：查看插件里的客户资料、最近沟通和已有待办；智能体可按权限整理重点。
+2. **团队确认**：负责人判断哪些客户需要跟进，确认优先级和下一步。
+3. **创建跟进任务**：流程根据确认结果生成待办，明确谁负责、何时跟进。
 
 这是[业务场景示意](https://artisan-cloud.com/products/powerx-base)，不是开箱即用的跨插件演示。实际能用哪些数据、能执行哪些动作，取决于安装的插件、配置和授权。
 
