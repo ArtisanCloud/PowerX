@@ -1,12 +1,10 @@
-# PowerX
+<h1><img src="./docs/assets/readme/powerx-wordmark.svg" alt="PowerX" width="150" /></h1>
 
 **面向企业应用与智能体的开源底座。**
 
 业务插件可以独立开发、安装和升级，不必各自实现租户、权限和事件系统。插件把业务能力注册到 PowerX，工作流和智能体再按授权调用这些能力。这个仓库是 PowerX Core，包含服务端和管理后台。
 
 [快速开始](#快速开始) · [插件开发](https://powerx-doc.artisan-cloud.com/zh/developers/) · [产品官网](https://artisan-cloud.com/products/powerx-base) · [English](./README-en.md)
-
-![PowerX Core 关系图：业务插件注册能力，工作流和智能体按授权调用](./docs/assets/readme/powerx-core-relationship.svg)
 
 ## 快速开始
 
