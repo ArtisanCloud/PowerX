@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -257,6 +258,26 @@ func TestDatabaseRetentionControlNativeHTTPAndSSE(t *testing.T) {
 	code, raw = call("POST", path+"/changes", gov.DatabaseRetentionChange{RequestID: key, ExpectedRevision: 1, Action: "status", Enabled: &yes, Confirm: true}, token)
 	require.Equal(t, 200, code)
 	wait(2)
+	// 运维脚本经正式路由发起一批，与定时执行共享到期复查检查点。
+	scriptTenant := &tenants.Tenant{Key: uuid.NewString(), Name: "expiry script"}
+	require.NoError(t, db.Create(scriptTenant).Error)
+	expiredAt := time.Now().UTC().AddDate(0, 0, -120)
+	linked := &capm.CapabilityEventPublication{TenantUUID: scriptTenant.UUID.String(), TraceID: uuid.NewString(), Status: "quarantined", RecordClass: capm.InvocationNotificationClass, Payload: datatypes.JSON(`{}`), TerminalAt: &expiredAt}
+	require.NoError(t, db.Create(linked).Error)
+	require.NoError(t, db.Create(&capm.InvocationTrace{TenantUUID: linked.TenantUUID, TraceID: linked.TraceID, Status: "completed", RecordClass: capm.InvocationAuditClass, CompletedAt: &expiredAt, EventPublicationID: &linked.UUID}).Error)
+	script, e := filepath.Abs("../../../../../../scripts/ops/powerx-transition-guard/database_expiry.py")
+	require.NoError(t, e)
+	cmd := exec.Command("python3", script, "--origin", server.URL+"/custom/v2", "--instance", "owned-http", "--revision", "2", "--apply")
+	cmd.Env = append(os.Environ(), "POWERX_ADMIN_TOKEN="+token)
+	scriptOutput, e := cmd.CombinedOutput()
+	require.NoError(t, e, "%s", scriptOutput)
+	var scriptReceipt gov.DatabaseRetentionRun
+	lines := bytes.Split(bytes.TrimSpace(scriptOutput), []byte("\n"))
+	require.NoError(t, json.Unmarshal(lines[len(lines)-1], &scriptReceipt))
+	require.Equal(t, "completed", scriptReceipt.State)
+	require.EqualValues(t, 1, scriptReceipt.Counts.Traces)
+	require.EqualValues(t, 1, scriptReceipt.Counts.Events)
+
 	code, _ = call("GET", path+"/requests/"+key, nil, token)
 	require.Equal(t, 200, code)
 	code, _ = call("POST", path+"/changes", gov.DatabaseRetentionChange{RequestID: uuid.NewString(), ExpectedRevision: 1, Action: "status", Enabled: &yes, Confirm: true}, token)

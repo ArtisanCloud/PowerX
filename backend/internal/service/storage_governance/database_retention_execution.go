@@ -55,6 +55,12 @@ func (s *Service) DatabaseRetentionRunRequest(ctx context.Context, key string) (
 func (s *Service) PreviewDatabaseRetention(ctx context.Context, revision int64) (DatabaseRetentionRun, error) {
 	return s.databaseBatch(ctx, revision, "", false, false)
 }
+
+// PreviewDatabaseRetentionExpiry 预览独立到期复查的下一批，使用与自动任务相同的进度。
+func (s *Service) PreviewDatabaseRetentionExpiry(ctx context.Context, revision int64) (DatabaseRetentionRun, error) {
+	return s.databaseBatchConfirmed(ctx, revision, "", "", false, false, true)
+}
+
 func (s *Service) RunConfirmedDatabaseRetention(ctx context.Context, revision int64, key, preview string) (DatabaseRetentionRun, error) {
 	if !auth.IsPlatformRootSession(ctx) {
 		return DatabaseRetentionRun{}, ErrRootRequired
@@ -62,12 +68,12 @@ func (s *Service) RunConfirmedDatabaseRetention(ctx context.Context, revision in
 	if !validTargetUUID(preview) {
 		return DatabaseRetentionRun{}, controlError(428, "DATABASE_RETENTION_PREVIEW_REQUIRED")
 	}
-	return s.databaseBatchConfirmed(ctx, revision, key, preview, true, false)
+	return s.databaseBatchConfirmed(ctx, revision, key, preview, true, false, false)
 }
 func (s *Service) databaseBatch(ctx context.Context, revision int64, key string, apply, scheduled bool) (DatabaseRetentionRun, error) {
-	return s.databaseBatchConfirmed(ctx, revision, key, "", apply, scheduled)
+	return s.databaseBatchConfirmed(ctx, revision, key, "", apply, scheduled, false)
 }
-func (s *Service) databaseBatchConfirmed(ctx context.Context, revision int64, key, preview string, apply, scheduled bool) (DatabaseRetentionRun, error) {
+func (s *Service) databaseBatchConfirmed(ctx context.Context, revision int64, key, preview string, apply, scheduled, expiryOnly bool) (DatabaseRetentionRun, error) {
 	out := DatabaseRetentionRun{ID: key, Revision: revision, At: s.opts.Now().UTC(), Actor: rootActor(ctx), State: "preview", Trigger: "manual", PreviewID: preview}
 	if !scheduled && !auth.IsPlatformRootSession(ctx) {
 		return out, ErrRootRequired
@@ -148,10 +154,7 @@ func (s *Service) databaseBatchConfirmed(ctx context.Context, revision int64, ke
 			if scheduled && !s.opts.LifecycleWorkerEnabled {
 				return ErrStateUnavailable
 			}
-			window, cutoffs, checkpointExists, e := s.retentionScanWindow(run, tx, p, out.At)
-			if e != nil {
-				return e
-			}
+			var confirmed *DatabaseRetentionRun
 			if apply && !scheduled {
 				previous, e := ledger.Get(run, tx, preview)
 				if e != nil {
@@ -164,10 +167,34 @@ func (s *Service) databaseBatchConfirmed(ctx context.Context, revision int64, ke
 				if previous.State != "preview" || r.Scan == nil || r.Actor != out.Actor || r.Revision != revision || r.ExpiresAt == nil || out.At.After(*r.ExpiresAt) || out.At.Before(r.At) {
 					return controlError(409, "DATABASE_RETENTION_PREVIEW_EXPIRED")
 				}
-				window = r.Scan.Window
-				cutoffs = *r.Cutoffs
+				confirmed = &r
+				expiryOnly = r.Cutoffs.ExpiryOnly
+			}
+			checkpointID := retentionCheckpointID
+			if expiryOnly {
+				checkpointID = expiryCheckpointID
+			}
+			old, e := s.readScanCheckpoint(run, tx, checkpointID)
+			if e != nil {
+				return e
+			}
+			if expiryOnly && old != nil {
+				out.PreviousExpiryRun = old.LastRun
+			}
+			var window caprepo.RetentionWindow
+			var cutoffs caprepo.RetentionCutoffs
+			if confirmed == nil {
+				window, cutoffs, e = s.retentionScanWindow(run, tx, p, out.At, old, expiryOnly)
+				if e != nil {
+					return e
+				}
+			} else {
+				window, cutoffs = confirmed.Scan.Window, *confirmed.Cutoffs
 				if cutoffs.Limit != p.BatchLimit || cutoffs.AdoptLegacy != p.AdoptLegacy {
 					return ErrStateUnavailable
+				}
+				if expiryOnly && confirmed.PreviousExpiryRun != out.PreviousExpiryRun {
+					return controlError(409, "DATABASE_RETENTION_PREVIEW_EXPIRED")
 				}
 				if e = ledger.Consume(run, tx, preview, out.Actor); e != nil {
 					return e
@@ -186,8 +213,8 @@ func (s *Service) databaseBatchConfirmed(ctx context.Context, revision int64, ke
 				expiry := out.At.Add(5 * time.Minute)
 				out.ExpiresAt = &expiry
 			}
-			if scheduled {
-				if e = s.saveRetentionCheckpoint(run, tx, out, checkpointExists); e != nil {
+			if scheduled || apply && expiryOnly {
+				if e = s.saveRetentionCheckpoint(run, tx, checkpointID, out, old != nil); e != nil {
 					return e
 				}
 			}

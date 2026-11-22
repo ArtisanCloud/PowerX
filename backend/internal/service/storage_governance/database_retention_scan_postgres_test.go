@@ -2,6 +2,7 @@ package storagegov
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -194,4 +195,70 @@ func TestDatabaseRetentionNativeCycleStillReportsBatchFailure(t *testing.T) {
 	checkpoint, err := s.readRetentionCheckpoint(context.Background(), db)
 	require.NoError(t, err)
 	require.Nil(t, checkpoint, "失败批次不得提交游标")
+}
+
+func TestDatabaseRetentionExpiryRechecksSkippedPairsAndSharesCheckpoint(t *testing.T) {
+	s, apply, db := retentionNative(t)
+	p := adoptRetentionNative(t, s, apply)
+	p = enableRetentionNative(t, s, apply, p.Revision)
+	tenant := seedRetentionNative(t, db)
+	now := time.Now().UTC()
+	then := now.AddDate(0, 0, -4)
+	finished := now.AddDate(0, 0, -p.SuccessDays-5)
+	isolated := now.AddDate(0, 0, -p.QuarantineDays-1)
+	notices := make([]capm.CapabilityEventPublication, p.BatchLimit+6)
+	for i := range notices {
+		notices[i] = capm.CapabilityEventPublication{TenantUUID: tenant, TraceID: uuid.NewString(), RecordClass: capm.InvocationNotificationClass, Status: "quarantined", TerminalAt: &isolated, Payload: datatypes.JSON(`{}`)}
+	}
+	require.NoError(t, db.CreateInBatches(&notices, 100).Error)
+	traces := make([]capm.InvocationTrace, len(notices))
+	for i, notice := range notices {
+		traces[i] = capm.InvocationTrace{TenantUUID: tenant, TraceID: notice.TraceID, RecordClass: capm.InvocationAuditClass, Status: "completed", CompletedAt: &finished, EventPublicationID: &notices[i].UUID}
+	}
+	require.NoError(t, db.CreateInBatches(&traces, 100).Error)
+	// 模拟旧版已扫完审计表、通知游标还在前进的持久检查点（不含新增字段）。
+	ctx := context.Background()
+	r := caprepo.NewRetentionRepository(db)
+	high, err := r.ScanHighwater(ctx)
+	require.NoError(t, err)
+	scan := caprepo.RetentionProgress{Window: caprepo.RetentionWindow{End: high, Highwater: high}, Next: caprepo.RetentionPosition{Traces: high.Traces}}
+	cutoffs := s.retentionCutoffs(p, then)
+	raw, err := json.Marshal(map[string]any{"revision": p.Revision, "cutoffs": cutoffs, "progress": scan})
+	require.NoError(t, err)
+	require.NoError(t, s.scanLedger().Create(ctx, db, &m.CleanupRun{RunID: retentionCheckpointID, Version: 1, State: "checkpoint", ExpiresAt: now.AddDate(0, 0, 30), Document: raw}))
+	normal, err := s.PreviewDatabaseRetention(controlRoot(), p.Revision)
+	require.NoError(t, err)
+	require.True(t, normal.Cutoffs.Quarantine.After(isolated))
+	require.EqualValues(t, 0, normal.Counts.Traces, "普通窗口已经走过该审计记录")
+	preview, err := s.PreviewDatabaseRetentionExpiry(controlRoot(), p.Revision)
+	require.NoError(t, err)
+	require.True(t, preview.Cutoffs.ExpiryOnly)
+	require.EqualValues(t, p.BatchLimit, preview.Counts.Traces)
+	require.EqualValues(t, p.BatchLimit-1, preview.Counts.Events)
+	require.EqualValues(t, 0, preview.Counts.Quarantined)
+	// 两个调用方都拿到相同窗口。落后的确认不能把检查点写回旧位置。
+	stale, err := s.PreviewDatabaseRetentionExpiry(controlRoot(), p.Revision)
+	require.NoError(t, err)
+	id := uuid.NewString()
+	run, err := s.RunConfirmedDatabaseRetention(controlRoot(), p.Revision, id, preview.ID)
+	require.NoError(t, err)
+	require.EqualValues(t, p.BatchLimit, run.Counts.Traces)
+	require.EqualValues(t, p.BatchLimit-1, run.Counts.Events)
+	again, err := s.RunConfirmedDatabaseRetention(controlRoot(), p.Revision, id, preview.ID)
+	require.NoError(t, err)
+	require.Equal(t, run.ID, again.ID)
+	_, err = s.RunConfirmedDatabaseRetention(controlRoot(), p.Revision, uuid.NewString(), stale.ID)
+	require.Equal(t, "DATABASE_RETENTION_PREVIEW_EXPIRED", dto.CodeOf(err))
+	checkpoint, err := s.readRetentionCheckpoint(ctx, db)
+	require.NoError(t, err)
+	require.Equal(t, scan, checkpoint.Progress)
+	next, err := s.databaseBatchConfirmed(ctx, 0, uuid.NewString(), "", true, true, true)
+	require.NoError(t, err)
+	require.Equal(t, id, next.PreviousExpiryRun)
+	require.EqualValues(t, 7, next.Counts.Traces)
+	require.EqualValues(t, 7, next.Counts.Events)
+	require.Zero(t, next.Counts.Quarantined)
+	var n int64
+	require.NoError(t, db.Unscoped().Model(&capm.CapabilityEventPublication{}).Where("topic = ?", "business.order.created").Count(&n).Error)
+	require.EqualValues(t, 1, n)
 }

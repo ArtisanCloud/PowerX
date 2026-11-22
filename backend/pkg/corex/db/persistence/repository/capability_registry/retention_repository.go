@@ -16,6 +16,7 @@ import (
 
 // RetentionCutoffs 是 Service 已确认的期限，不接受表名或任意过滤表达式。
 type RetentionCutoffs struct {
+	ExpiryOnly  bool      `json:"expiry_only,omitempty"`
 	Success     time.Time `json:"success"`
 	Failure     time.Time `json:"failure"`
 	Pending     time.Time `json:"pending"`
@@ -172,8 +173,10 @@ func (r *RetentionRepository) BatchWindow(ctx context.Context, c RetentionCutoff
 		if apply {
 			q = q.Clauses(lock)
 		}
-		if err := q.Order("pe.id").Limit(c.Limit).Find(&pending).Error; err != nil {
-			return err
+		if !c.ExpiryOnly {
+			if err := q.Order("pe.id").Limit(c.Limit).Find(&pending).Error; err != nil {
+				return err
+			}
 		}
 		if len(pending) == c.Limit {
 			progress.Next.Events = int64(pending[len(pending)-1].ID)
@@ -245,7 +248,7 @@ func (r *RetentionRepository) BatchWindow(ctx context.Context, c RetentionCutoff
 			}
 		}
 		var eligible []m.CapabilityEventPublication
-		eqReady := eventExpired(tx.Unscoped().Select("uuid,tenant_uuid").Where("uuid IN ?", linkedIDs), "", c)
+		eqReady := eventExpired(tx.Unscoped().Select("id,uuid,tenant_uuid").Where("uuid IN ?", linkedIDs), "", c)
 		if apply {
 			eqReady = eqReady.Clauses(lock)
 		}
@@ -254,13 +257,24 @@ func (r *RetentionRepository) BatchWindow(ctx context.Context, c RetentionCutoff
 				return err
 			}
 		}
-		eligibleIDs := map[string]bool{}
+		eligibleIDs := map[string]int64{}
 		for _, e := range eligible {
-			eligibleIDs[e.TenantUUID+e.UUID.String()] = true
+			eligibleIDs[e.TenantUUID+e.UUID.String()] = int64(e.ID)
 		}
+		var previewTraceIDs []int64
 		for _, tr := range traces {
-			if tr.EventPublicationID != nil && !eligibleIDs[tr.TenantUUID+tr.EventPublicationID.String()] {
-				continue
+			if tr.EventPublicationID != nil {
+				id, ok := eligibleIDs[tr.TenantUUID+tr.EventPublicationID.String()]
+				if !ok {
+					continue
+				}
+				// 复查同时跟进本批审计释放的通知，即使通知游标已越过它。
+				if c.ExpiryOnly && id <= window.Highwater.Events {
+					eventKeys = append(eventKeys, id)
+					if !apply {
+						previewTraceIDs = append(previewTraceIDs, int64(tr.ID))
+					}
+				}
 			}
 			out.Traces++
 			if apply {
@@ -272,7 +286,11 @@ func (r *RetentionRepository) BatchWindow(ctx context.Context, c RetentionCutoff
 		var events []m.CapabilityEventPublication
 		eq := registered(tx.Model(&m.CapabilityEventPublication{}).Table(m.CapabilityEventPublication{}.TableName()+" AS ep"), "ep")
 		eq = eventExpired(eq.Where("ep.id IN ?", eventKeys), "ep", c)
-		eq = eq.Where("NOT EXISTS (SELECT 1 FROM " + m.InvocationTrace{}.TableName() + " AS ref WHERE ref.event_publication_id=ep.uuid)")
+		references := tx.Unscoped().Table(m.InvocationTrace{}.TableName() + " AS ref").Select("1").Where("ref.event_publication_id=ep.uuid")
+		if len(previewTraceIDs) > 0 {
+			references = references.Where("ref.id NOT IN ?", previewTraceIDs)
+		}
+		eq = eq.Where("NOT EXISTS (?)", references)
 		if apply {
 			eq = eq.Clauses(lock)
 		}
@@ -280,7 +298,7 @@ func (r *RetentionRepository) BatchWindow(ctx context.Context, c RetentionCutoff
 			return err
 		}
 		if len(events) == c.Limit && int64(events[len(events)-1].ID) < progress.Next.Events {
-			progress.Next.Events = int64(events[len(events)-1].ID)
+			progress.Next.Events = max(window.Before.Events, int64(events[len(events)-1].ID))
 		}
 		for _, e := range events {
 			out.Events++
