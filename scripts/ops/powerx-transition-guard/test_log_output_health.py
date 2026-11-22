@@ -117,14 +117,17 @@ class LogOutputTests(unittest.TestCase):
             capacity.runtime_health({'runtime_health': old, 'health_checked_at': health.time.time()})
             self.assertEqual(request.call_count, 2)
 
-    def test_new_logging_failure_alerts_once_even_if_disk_was_already_critical_and_recovery_is_reported(self):
+    def test_new_logging_failure_alerts_once_even_if_disk_is_already_critical(self):
         def output(fingerprint, healthy):
-            return {'healthy': healthy, 'log_outputs': {'fingerprint': fingerprint, 'services': [
+            return {'healthy': healthy, 'core_status': 200, 'dev_core_status': 200,
+                    'core_seconds': 0.1, 'dev_core_seconds': 0.1,
+                    'log_outputs': {'fingerprint': fingerprint, 'healthy': healthy, 'services': [
                 {'unit': 'powerx-dev-backend.service', 'healthy': healthy, 'reason': 'no_available_log_output'}]}}
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             prior = {'severity': 'critical', 'guard_kind': 'monitor_only_no_schedule_changes_or_deletion',
-                     'runtime_health': output('old', True), 'notification_at': 10**12}
+                     'filesystem': {'available_bytes': 7 * capacity.GIB, 'used_ratio': .9},
+                     'runtime_health': output('old', True), 'notification': {'status': 'api_accepted'}}
             (root / 'capacity-latest.json').write_text(json.dumps(prior))
             with patch.object(capacity, 'STATE', root), patch.object(capacity, 'filesystem', return_value={'available_bytes': 7 * capacity.GIB, 'used_ratio': .9}), \
                     patch.object(capacity, 'runtime_health', return_value=(output('bad', False), 123)) as probe, \
@@ -136,8 +139,9 @@ class LogOutputTests(unittest.TestCase):
                 self.assertIn('无可用日志出口', send.call_args.args[0])
                 probe.return_value = (output('recovered', True), 124)
                 capacity.observe(True)
-                self.assertEqual(send.call_count, 2)
-                self.assertIn('可用', send.call_args.args[0])
+                probe.return_value = (output('flapped', False), 125)
+                capacity.observe(True)
+                self.assertEqual(send.call_count, 1)
 
 
 

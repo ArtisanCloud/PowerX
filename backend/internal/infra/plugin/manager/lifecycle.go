@@ -204,6 +204,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 	}
 	envAPI["POWERX_PLUGIN_ID"] = p.ID
 	envAPI["POWERX_PLUGIN_VERSION"] = p.Version
+	envAPI["POWERX_PLUGIN_INSTALLATION_REVISION"] = p.Revision
 	if p.Paths.Root != "" {
 		envAPI["POWERX_PLUGIN_ROOT"] = p.Paths.Root
 		injectPluginSkillsDir(envAPI, p.Paths.Root)

@@ -50,6 +50,7 @@ func (h *handler) databaseBatch(c *gin.Context, apply bool) {
 		return
 	}
 	var in struct {
+		ExpiryOnly       *bool  `json:"expiry_only"`
 		ExpectedRevision *int64 `json:"expected_revision"`
 		RequestID        string `json:"request_id"`
 		PreviewID        string `json:"preview_id"`
@@ -64,7 +65,13 @@ func (h *handler) databaseBatch(c *gin.Context, apply bool) {
 	}
 	var out gov.DatabaseRetentionRun
 	var err error
-	if !apply {
+	if apply && in.ExpiryOnly != nil {
+		h.stateError(c, gov.ErrPolicyInvalid)
+		return
+	}
+	if !apply && in.ExpiryOnly != nil && *in.ExpiryOnly {
+		out, err = h.service.PreviewDatabaseRetentionExpiry(c.Request.Context(), *in.ExpectedRevision)
+	} else if !apply {
 		out, err = h.service.PreviewDatabaseRetention(c.Request.Context(), *in.ExpectedRevision)
 	} else if in.Confirm {
 		out, err = h.service.RunConfirmedDatabaseRetention(c.Request.Context(), *in.ExpectedRevision, in.RequestID, in.PreviewID)

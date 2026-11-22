@@ -198,6 +198,7 @@ web-admin/
 
 - 需求：`spec.md` 的 US9、FR-049～FR-068、SC-017～SC-024。
 - 详细参数与规则：[存储治理方案](../../docs/plan/deploy/storage-governance.md)；产品：[UI 设计](../../docs/plan/deploy/storage-governance-ui.md)；操作：[US9 手册](../../docs/guides/deploy/027-monitor-center/usecase-us9-storage-governance.md)。
+- SG-12 插件数据集治理按[平台合同](../../docs/contracts/plugin-dataset-lifecycle-review.md)推进。Core 登记表由 `backend/pkg/corex/db/database/migration.go` 的集中存储治理迁移注册。平台使用自有合成插件验收，真实业务插件按合同独立接入。
 - **任务状态唯一来源**：[tasks.md / Phase 11 / US9](tasks.md#us9-storage-governance)，T101～T165；docs 的任务页面改为索引，不维护第二套完成勾选。
 - 当前 v0.3 开放概览、按环境／实例及资源绑定的草稿和测算、占用历史；三张平台元数据表集中挂载于 migration.go。运行期建议目录来自可信部署来源，按天／份数／引用保护独立语义；主机预算和当前资源分别保存。此次仅扩展 JSON，无新迁移。启用、清理、覆盖与接管合同继续由未完成任务冻结，保持现有策略和流程。
 

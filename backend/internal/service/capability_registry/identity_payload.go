@@ -8,6 +8,11 @@ import (
 // Only persistence/audit copies are redacted; the typed execution payload
 // remains intact. Never retain an identity capability's bearer proof in traces.
 func redactIdentityTicketPayload(capabilityID string, payload map[string]interface{}) map[string]interface{} {
+	if capabilityID == "com.corex.storage.datasets.execution_worker" && payload != nil {
+		// Both archive bytes and issued execution grants belong to the batch,
+		// never to the general invocation trace.
+		return map[string]interface{}{"dataset_execution_payload_redacted": true}
+	}
 	if capabilityID != "com.corex.iam.identity_context.service_read" {
 		return payload
 	}

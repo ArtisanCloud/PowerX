@@ -17,7 +17,8 @@
 |---|---|
 | 本文 | 容量总账、参数基线、生命周期、后端和部署边界 |
 | [UI 设计](storage-governance-ui.md) | 页面分区、字段、交互、权限和状态反馈 |
-| [正式开发任务（specs US9）](../../../specs/027-monitor-center/tasks.md#us9-storage-governance) | 唯一任务状态来源，T101～T165；[阶段索引](storage-governance-tasks.md) |
+| [正式开发任务（specs US9）](../../../specs/027-monitor-center/tasks.md#us9-storage-governance) | 唯一任务状态来源；[阶段索引](storage-governance-tasks.md) |
+| [插件数据集生命周期治理](storage-governance-plugin-datasets.md) | 系统与插件数据集的统一观测、登记合同、保留与跨库执行设计 |
 | [实施与验收手册](../../guides/deploy/027-monitor-center/usecase-us9-storage-governance.md) | 现有能力核验、未来页面操作、联调、排障和回滚 |
 | [现有日志异地归档](../../guides/deploy/027-monitor-center/usecase-us7-remote-log-archives.md) | 已有 SSH 归档与独立 worker，不等于统一容量治理已实现 |
 | [现有备份中心](../../guides/deploy/027-monitor-center/guide.md) | 数据库备份、系统快照和恢复的操作边界 |

@@ -7,4 +7,5 @@ const (
 	TablePolicyRevision       = "ops_storage_policy_revisions"
 	TableSample               = "ops_storage_samples"
 	TableCleanupRun           = "ops_storage_cleanup_runs"
+	TableDatasetRegistration  = "ops_storage_datasets"
 )

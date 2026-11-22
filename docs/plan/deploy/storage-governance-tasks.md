@@ -10,8 +10,9 @@
 |---|---|
 | [spec.md / US9](../../../specs/027-monitor-center/spec.md) | 需求与验收：FR-049～FR-068、SC-017～SC-024 |
 | [plan.md / US9](../../../specs/027-monitor-center/plan.md) | 实施边界、代码落点、阶段与依赖 |
-| [tasks.md / US9](../../../specs/027-monitor-center/tasks.md#us9-storage-governance) | **完整开发任务与唯一进度来源：T101～T174** |
+| [tasks.md / US9](../../../specs/027-monitor-center/tasks.md#us9-storage-governance) | **完整开发任务与唯一进度来源** |
 | [总体方案](storage-governance.md) | 容量总账、保留参数、生命周期与 XDocker 边界 |
+| [插件数据集生命周期治理](storage-governance-plugin-datasets.md) | SG-12 登记、只读预览、执行与归档设计 |
 | [UI 设计](storage-governance-ui.md) | 分区、字段、草稿、预览与事件推送 |
 | [实施与验收手册](../../guides/deploy/027-monitor-center/usecase-us9-storage-governance.md) | 操作、联调、排障与回滚 |
 
@@ -31,6 +32,7 @@
 | SG-09 | [T154～T160](../../../specs/027-monitor-center/tasks.md#us9-sg-09) | SG-09.x | 双环境自动周期、故障、取回与运行交付 |
 | SG-10 | [T161～T165](../../../specs/027-monitor-center/tasks.md#us9-sg-10) | SG-10.x | XDocker 合同、唯一预留权威与接管验收 |
 | SG-11 | [T166～T174](../../../specs/027-monitor-center/tasks.md#us9-commercial-gates) | SG-11.x | 商用发布阻塞：配置唯一权威、原子版本、Root、发布确认、密钥及恢复 |
+| SG-12 | [T175～T179](../../../specs/027-monitor-center/tasks.md#us9-sg-12) | SG-12.x | 插件数据集治理扩展：合同评审、登记、观测、只读预览、执行及归档 |
 
 ## 3. 实施与验收原则
 

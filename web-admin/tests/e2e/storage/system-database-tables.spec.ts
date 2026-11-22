@@ -15,6 +15,7 @@ for (const width of [1440, 390, 320]) {
       if (route.request().method() !== 'GET') writes++;
       let data: any;
       if (path === 'overview') data = { mode: 'observe', cleanup_enabled: false, identity: { environment: 'dev', instance_id: 'fixture-install' }, observed_at: new Date().toISOString(), expires_at: new Date(Date.now() + 300000).toISOString(), filesystem: { id: 'disk', view: 'process_filesystem', state: 'observed', total_bytes: 120 * 1024 ** 3, used_bytes: 70 * 1024 ** 3, available_bytes: 30 * 1024 ** 3, reserved_bytes: 0 }, resources: [], coverage: 'partial', unattributed_bytes: null, limitations: [], alerts: [] };
+      else if (path === 'execution-control') data = { mode: 'unmanaged', desired_revision: 0, applied_revision: 0, confirmed: false, can_pause: false, can_resume: false, worker_ready: false, policies: [] };
       else if (path === 'database-tables') { reads++; if (fail) return route.fulfill({ status: 503, json: { code: 503, message: 'fixture table observation unavailable' } }); data = tableInventory(); }
       else if (path === 'database-tables/capability_registry_invocation_traces') { detailReads++; data = tableInventory(); data.items = data.items.slice(0, 1); }
       else throw new Error(`Unexpected storage request ${path}`);

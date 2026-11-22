@@ -43,6 +43,9 @@ func validateStorageGovernanceYAML(raw []byte) error {
 	if cfg.PostgresEnabled && cfg.PostgresClusterID == "" {
 		return fmt.Errorf("storage_governance postgres metrics require registered cluster identity")
 	}
+	if e := ValidateStoragePluginPostgresSources(cfg.PluginPostgresSources); e != nil {
+		return e
+	}
 	for _, source := range cfg.Sources {
 		if source.RotationFormat != "postgresql" {
 			continue
@@ -103,6 +106,28 @@ func validateStorageGovernanceYAML(raw []byte) error {
 	}
 	if (cfg.LifecycleEnabled || cfg.AdmissionEnabled) && critical >= min {
 		return fmt.Errorf("storage governance effective floors invalid")
+	}
+	return nil
+}
+
+// ValidateStoragePluginPostgresSources rejects ambiguous source identity in deployment config.
+func ValidateStoragePluginPostgresSources(sources []StoragePluginPostgresSource) error {
+	if len(sources) > 64 {
+		return fmt.Errorf("storage_governance has too many plugin postgres sources")
+	}
+	id := regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
+	name := regexp.MustCompile(`^[a-z_][a-z0-9_]{0,62}$`)
+	env := regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,127}$`)
+	plugins, bindings := map[string]bool{}, map[string]bool{}
+	for _, source := range sources {
+		binding, err := uuid.Parse(source.BindingUUID)
+		if err != nil || binding == uuid.Nil || binding.String() != source.BindingUUID || !id.MatchString(source.PluginID) ||
+			!id.MatchString(source.ClusterID) || !name.MatchString(source.Schema) || !name.MatchString(source.WorkerRole) ||
+			!env.MatchString(source.ObserverDSNEnv) || plugins[source.PluginID] || bindings[source.BindingUUID] ||
+			strings.HasPrefix(source.Schema, "pg_") || source.Schema == "information_schema" {
+			return fmt.Errorf("storage_governance plugin postgres source invalid")
+		}
+		plugins[source.PluginID], bindings[source.BindingUUID] = true, true
 	}
 	return nil
 }

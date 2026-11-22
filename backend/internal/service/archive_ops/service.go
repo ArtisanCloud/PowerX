@@ -109,6 +109,10 @@ func (s *Service) check(ctx context.Context) error {
 	if e := requireRoot(ctx); e != nil {
 		return e
 	}
+	return s.available()
+}
+
+func (s *Service) available() error {
 	if s == nil || s.initErr != nil {
 		return failure(503, "ARCHIVE_SERVICE_UNAVAILABLE", "归档服务不可用，请检查运维配置和目录权限")
 	}

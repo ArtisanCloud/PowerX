@@ -416,7 +416,7 @@ func MigrateNotificationReminderDependencies(db *gorm.DB) error {
 
 // MigrateStorageGovernanceModels 复用完整迁移的注册；开发限定入口只迁移治理元数据表。
 func MigrateStorageGovernanceModels(db *gorm.DB) error {
-	if err := db.AutoMigrate(&modelStorageGov.ControlConfiguration{}, &modelStorageGov.ControlRevision{}, &modelStorageGov.Policy{}, &modelStorageGov.PolicyRevision{}, &modelStorageGov.Sample{}, &modelStorageGov.CleanupRun{}); err != nil {
+	if err := db.AutoMigrate(&modelStorageGov.ControlConfiguration{}, &modelStorageGov.ControlRevision{}, &modelStorageGov.Policy{}, &modelStorageGov.PolicyRevision{}, &modelStorageGov.Sample{}, &modelStorageGov.CleanupRun{}, &modelStorageGov.DatasetRegistration{}); err != nil {
 		return err
 	}
 	return CheckStorageGovernanceSchema(db)

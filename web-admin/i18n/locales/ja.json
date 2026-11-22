@@ -146,6 +146,87 @@
     "newImport": "Review again before a new import"
   },
   "storageGov": {
+    "datasets": {
+      "execution": {
+        "title": "実行ポリシーとバッチ",
+        "unavailable": "ポリシーの状態を取得できません",
+        "pause": "ポリシーを一時停止",
+        "action": "処理方法",
+        "target": "アーカイブ先",
+        "targetHint": "検証済みの S3 ターゲットを選択",
+        "enable": "ポリシーを有効化",
+        "affected": "対象レコード数",
+        "download": "検証済みアーカイブをダウンロード",
+        "cancel": "未承認のバッチを取り消す",
+        "retry": "同じバッチを再試行",
+        "run": "1 バッチを実行",
+        "states": {
+          "enabled": "ポリシー有効",
+          "paused": "ポリシー停止",
+          "draining": "ソースの結果を待機中",
+          "queued": "バッチ実行待ち",
+          "authorized": "実行許可を発行済み",
+          "needs_reconciliation": "ソースの結果確認が必要",
+          "committed": "バッチ完了",
+          "aborted": "ソースで中止",
+          "cancelled": "バッチ取り消し済み"
+        },
+        "actions": {
+          "delete": "件数を制限して削除",
+          "archive": "アーカイブして元データを保持"
+        },
+        "confirm": {
+          "delete": "このプレビューで削除バッチを 1 件実行する",
+          "archive": "このプレビューでアーカイブバッチを 1 件実行する"
+        }
+      },
+      "title": "データセット一覧",
+      "pageSize": "このページの物理容量（重複除外）",
+      "owner": "所有者",
+      "all": "すべて",
+      "system": "システム",
+      "plugin": "プラグイン",
+      "preview": "保持期間をプレビュー",
+      "systemPolicy": "システムテーブル管理を開く",
+      "empty": "該当するデータセットがありません。",
+      "previous": "前へ",
+      "next": "次へ",
+      "previewDescription": "テナントと保持期間ごとに対象と保護済みのレコードを集計します。プレビューは読み取り専用です。",
+      "tenantSearch": "テナント名で検索",
+      "search": "検索",
+      "tenant": "テナント",
+      "chooseTenant": "テナントを選択",
+      "days": "保持日数",
+      "bounds": "指定範囲 {min}～{max} 日",
+      "cutoff": "基準日時",
+      "examined": "確認済み",
+      "candidates": "対象レコード",
+      "bounded": "スキャン上限に達したため、確認済みのレコードを集計しています。",
+      "retry": "同じプレビューを再試行",
+      "newPreview": "新しいプレビュー",
+      "states": {
+        "pending": "送信中",
+        "queued": "実行待ち",
+        "running": "スキャン中",
+        "completed": "プレビュー完了",
+        "failed": "プレビュー失敗",
+        "invalidated": "データソースまたは権限が変更されました",
+        "expired": "プレビューの有効期限切れ"
+      },
+      "protection": {
+        "referenced": "参照されています",
+        "active": "処理中",
+        "retryable": "再試行可能",
+        "unknown_eligibility": "適格性が不明",
+        "retained_evidence": "証拠の保持が必要",
+        "latest_effective": "最新の有効なレコード",
+        "incomplete_record": "不完全なレコード"
+      },
+      "source": {
+        "unavailable": "容量を取得できません",
+        "needs_revalidation": "再検証が必要です"
+      }
+    },
     "policyControl": {
       "budgetHint": "遠隔容量と件数は書き込み上限です。到達すると新規保存を停止し、期限回収は保持日数に従います。予算0は未設定のため有効化できません。",
       "title": "アーカイブポリシー設定",

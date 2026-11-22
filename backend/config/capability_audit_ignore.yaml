@@ -99,6 +99,46 @@ routes:
     path: /api/v1/admin/agents/models/sync
     category: admin_configuration
     reason: Tenant owner/admin user JWT only; synchronizes saved provider catalogs and classifies local configuration candidates. This mutation is not a delegated Framework Host capability; service actors are explicitly rejected and existing typed catalog reads consume the saved result.
+  - method: GET
+    path: /api/v1/admin/ops/storage/datasets/:dataset_id/policies/:tenant_uuid
+    category: root_runtime_control
+    reason: Platform Root session only. Dataset policy and execution controls are separate from the typed STS worker capability.
+  - method: PUT
+    path: /api/v1/admin/ops/storage/datasets/:dataset_id/policies/:tenant_uuid
+    category: root_runtime_control
+    reason: Platform Root session only. Dataset policy and execution controls are separate from the typed STS worker capability.
+  - method: POST
+    path: /api/v1/admin/ops/storage/datasets/:dataset_id/runs
+    category: root_runtime_control
+    reason: Platform Root session only. Dataset policy and execution controls are separate from the typed STS worker capability.
+  - method: GET
+    path: /api/v1/admin/ops/storage/datasets/:dataset_id/runs/:request_uuid
+    category: root_runtime_control
+    reason: Platform Root session only. Dataset policy and execution controls are separate from the typed STS worker capability.
+  - method: POST
+    path: /api/v1/admin/ops/storage/datasets/:dataset_id/runs/:request_uuid/cancellations
+    category: root_runtime_control
+    reason: Platform Root session only. Dataset policy and execution controls are separate from the typed STS worker capability.
+  - method: GET
+    path: /api/v1/admin/ops/storage/datasets/:dataset_id/runs/:request_uuid/archive
+    category: root_runtime_control
+    reason: Platform Root session only. Dataset policy and execution controls are separate from the typed STS worker capability.
+  - method: POST
+    path: /api/v1/admin/ops/storage/datasets/:dataset_id/previews
+    category: root_runtime_control
+    reason: Root user JWT only. Starts a tenant-specific read-only storage preview.
+  - method: GET
+    path: /api/v1/admin/ops/storage/datasets/:dataset_id/previews/:request_uuid
+    category: root_runtime_control
+    reason: Root user JWT only. Reads the original operator's preview receipt.
+  - method: GET
+    path: /api/v1/admin/ops/storage/datasets
+    category: root_runtime_control
+    reason: Root user JWT only. The deployment-wide catalog does not grant plugins read access to one another's storage.
+  - method: GET
+    path: /api/v1/admin/ops/storage/datasets/:dataset_id
+    category: root_runtime_control
+    reason: Root user JWT only. Deployment-wide storage detail is separate from the typed plugin registration capability.
   - method: POST
     path: /api/v1/admin/ops/storage/cleanup-previews
     category: root_runtime_control

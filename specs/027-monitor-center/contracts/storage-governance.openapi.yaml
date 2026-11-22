@@ -1402,6 +1402,10 @@ paths:
               type: object
               additionalProperties: false
               properties:
+                expiry_only:
+                  type: boolean
+                  default: false
+                  description: 仅复查已到期系统记录。确认后与自动任务共用复查进度，进度已变更时返回 409 并重新预览。
                 expected_revision:
                   type: integer
                   format: int64
@@ -2902,6 +2906,11 @@ components:
               format: int64
               minimum: 0
         problem: *id016
+        previous_expiry_run:
+          type: string
+          format: uuid
+        cutoffs:
+          $ref: './database-retention-control.openapi.yaml#/components/schemas/Cutoffs'
         policy_snapshot:
           $ref: '#/components/schemas/DatabaseRetentionPolicy'
     DatabaseRetentionStatus:

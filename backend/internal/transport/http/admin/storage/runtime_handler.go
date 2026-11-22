@@ -154,9 +154,9 @@ func (h *handler) runtimeEvents(c *gin.Context) {
 					return
 				}
 				h.service.PublishChange("runtime_file_changed")
-			case <-updates:
+			case event := <-updates:
 				select {
-				case notifications <- []string{"storage"}:
+				case notifications <- []string{"storage", event.Reason}:
 				default:
 				}
 			}
@@ -168,7 +168,11 @@ func (h *handler) runtimeEvents(c *gin.Context) {
 		if names == nil {
 			name = "snapshot"
 		}
-		return eventstream.Event{Name: name, Data: gin.H{"resources": []string{"storage"}}}, nil
+		data := gin.H{"resources": []string{"storage"}}
+		if len(names) == 2 {
+			data["reason"] = names[1]
+		}
+		return eventstream.Event{Name: name, Data: data}, nil
 	})
 }
 func (h *handler) runtimeAcknowledge(c *gin.Context) {

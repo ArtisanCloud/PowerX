@@ -146,6 +146,87 @@
     "newImport": "重新核对并开始新导入"
   },
   "storageGov": {
+    "datasets": {
+      "execution": {
+        "title": "执行策略与批次",
+        "unavailable": "策略状态暂不可用",
+        "pause": "暂停策略",
+        "action": "处理方式",
+        "target": "归档目标",
+        "targetHint": "选择已验证的 S3 目标",
+        "enable": "启用策略",
+        "affected": "影响记录数",
+        "download": "取回已校验归档",
+        "cancel": "撤销未授权批次",
+        "retry": "重试原批次",
+        "run": "运行一个批次",
+        "states": {
+          "enabled": "策略已启用",
+          "paused": "策略已暂停",
+          "draining": "等待源端回执",
+          "queued": "批次等待执行",
+          "authorized": "已签发执行授权",
+          "needs_reconciliation": "等待核对源端结果",
+          "committed": "批次已完成",
+          "aborted": "源端已中止",
+          "cancelled": "批次已撤销"
+        },
+        "actions": {
+          "delete": "有界删除",
+          "archive": "归档并保留源数据"
+        },
+        "confirm": {
+          "delete": "确认按当前预览派发一个删除批次",
+          "archive": "确认按当前预览派发一个归档批次"
+        }
+      },
+      "title": "数据集目录",
+      "pageSize": "本页物理容量（去重）",
+      "owner": "数据归属",
+      "all": "全部",
+      "system": "系统",
+      "plugin": "插件",
+      "preview": "保留预览",
+      "systemPolicy": "打开系统表管理",
+      "empty": "当前范围暂无数据集。",
+      "previous": "上一页",
+      "next": "下一页",
+      "previewDescription": "按租户和保留期统计候选与保护记录。预览只读。",
+      "tenantSearch": "按名称查找租户",
+      "search": "查找",
+      "tenant": "预览租户",
+      "chooseTenant": "选择租户",
+      "days": "保留天数",
+      "bounds": "允许范围 {min}～{max} 天",
+      "cutoff": "截止时间",
+      "examined": "已检查",
+      "candidates": "候选记录",
+      "bounded": "已达到扫描上限，计数覆盖已检查范围。",
+      "retry": "重试原预览",
+      "newPreview": "创建新预览",
+      "states": {
+        "pending": "正在提交",
+        "queued": "等待执行",
+        "running": "扫描中",
+        "completed": "预览完成",
+        "failed": "预览失败",
+        "invalidated": "来源或授权已变化",
+        "expired": "预览已过期"
+      },
+      "protection": {
+        "referenced": "仍被引用",
+        "active": "仍在处理",
+        "retryable": "可重试",
+        "unknown_eligibility": "资格待确认",
+        "retained_evidence": "需要保留证据",
+        "latest_effective": "最新有效记录",
+        "incomplete_record": "记录不完整"
+      },
+      "source": {
+        "unavailable": "容量暂不可用",
+        "needs_revalidation": "需要重新校验"
+      }
+    },
     "release": {
       "remoteUnavailable": "远端归档未就绪 · 本次版本保持关闭",
       "remoteHint": "SSH／OSS 的真实目标和取回验收尚未完成。当前不进行远端探测、传输、取回或清理；本地监控和已验收的本地功能继续可用。",

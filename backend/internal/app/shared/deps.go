@@ -302,6 +302,7 @@ type TenantBuiltinObjectBootstrapper interface {
 type TenantBuiltinObjectBootstrapperFactory func(db *gorm.DB) TenantBuiltinObjectBootstrapper
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
+	result := &Deps{}
 	opts = scopedRedisOptions(opts)
 	ctx := context.Background()
 	defaultHTTPTimeout := opts.CapabilityRegistry.DefaultHTTPTimeout
@@ -646,6 +647,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			ModelVerifier:       capabilitycatalog.NewTenantModelKeyVerifier(db),
 			TenantAIEnvironment: aiLLMSvc.ResolveTenantEnv,
 			CoreInvoker: capabilitycatalog.NewCoreCapabilityMux(
+				&storagegov.DatasetRegisterInvoker{Service: func() *storagegov.Service { return result.StorageGovernance }},
 				&iamsvc.AuthorizationInvoker{Service: iamsvc.NewTenantDirectoryService(db)},
 				taskqueue.NewRuntimeInvoker(db, eventFabricDeps.StreamTasks),
 				&servicechannel.Invoker{Service: newEventFabricServiceChannel(db, eventFabricDeps)},
@@ -955,7 +957,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		return tenantBuiltinObjectFactory(db)
 	}
 
-	return &Deps{
+	*result = Deps{
 		PluginMarketplace:                 newPluginMarketplace(opts),
 		RuntimeIdentity:                   opts.RuntimeIdentity,
 		SkillDependencies:                 skillsvc.NewRuntimeDependencyService(db),
@@ -1024,6 +1026,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		},
 		TenantBuiltinObjects: tenantBuiltinObjectFactory,
 	}
+	return result
 }
 
 func featureFlagEnabled(flag string) bool {

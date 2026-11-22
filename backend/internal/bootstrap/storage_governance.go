@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	taskqueue "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/task_queue"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	manager "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	storageobserver "github.com/ArtisanCloud/PowerX/internal/infra/storage_observer"
 	archiveops "github.com/ArtisanCloud/PowerX/internal/service/archive_ops"
 	monitorlogs "github.com/ArtisanCloud/PowerX/internal/service/monitor_logs"
@@ -20,7 +22,9 @@ import (
 	storagegov "github.com/ArtisanCloud/PowerX/internal/service/storage_governance"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	pm "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
+	"github.com/google/uuid"
 )
 
 func configureStorageGovernance(cfg *config.Config, deps *shared.Deps, archives archiveops.Config, archiveError error, backupDirectory string) error {
@@ -48,6 +52,30 @@ func configureStorageGovernance(cfg *config.Config, deps *shared.Deps, archives 
 		RequireRecoveryAnchor:    cfg.Recovery.ProfileFile == "" && !cfg.Recovery.ReadOnly(),
 		SamplingConfigured:       c.SamplingEnabled,
 		SamplingWorkerEnabled:    c.SamplingEnabled && !config.BackgroundWorkersDisabled(cfg),
+	}
+	externalDatasets, err := datasetExternalSources(c.PluginPostgresSources)
+	if err != nil {
+		return err
+	}
+	opts.DatasetSources = &storagegov.DatasetSources{
+		External: externalDatasets,
+		Installed: func(ctx context.Context, pluginID string) (pm.Plugin, error) {
+			mgr := pm.CurrentPluginManager()
+			if mgr == nil {
+				return pm.Plugin{}, fmt.Errorf("active plugin catalog unavailable")
+			}
+			return mgr.Get(ctx, pluginID)
+		},
+		Binding: func(plugin pm.Plugin) (uuid.UUID, string, string, error) {
+			return manager.ManagedDatasetBinding(plugin, cfg.Deployment.Env, cfg.Database)
+		},
+	}
+	if deps.EventFabric != nil && deps.EventFabric.StreamTasks != nil && !cfg.Recovery.ReadOnly() {
+		opts.DatasetTasks = taskqueue.NewRuntimeService(deps.EventFabric.StreamTasks)
+		opts.DatasetExecutionEnabled = c.AdvancedOperationsEnabled && !config.BackgroundWorkersDisabled(cfg)
+	}
+	if c.PostgresEnabled {
+		opts.DatasetSources.ClusterID = c.PostgresClusterID
 	}
 	if c.SamplingEnabled && (deps.DB == nil || cfg.EnvironmentID == "" || cfg.Deployment.Env == "") {
 		return fmt.Errorf("storage sampling requires database and deployment identity")

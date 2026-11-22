@@ -336,6 +336,22 @@ func (s *Service) executionPoliciesTx(ctx context.Context, tx *gorm.DB) ([]Execu
 		}
 		out = append(out, p)
 	}
+	var datasets []m.CleanupRun
+	if e := tx.WithContext(ctx).Select("state").Distinct("state").
+		Where("tenant_id = 0 AND instance_id = ?", s.datasetWriteNamespace("policy")).Find(&datasets).Error; e != nil {
+		return nil, e
+	}
+	if len(datasets) > 0 {
+		p := ExecutionPolicyStatus{Domain: "plugin-dataset-policies", Kind: "unknown", ResourceName: "插件数据集", Confirmed: true, Paused: true}
+		for _, row := range datasets {
+			if row.State != "paused" {
+				p.Paused = false
+				p.Problem = "STORAGE_EXECUTION_POLICY_NOT_PAUSED"
+				break
+			}
+		}
+		out = append(out, p)
+	}
 	return out, nil
 }
 

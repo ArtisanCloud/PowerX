@@ -28,19 +28,20 @@ type DatabaseRetentionPolicy struct {
 	Actor             uint64    `json:"actor"`
 }
 type DatabaseRetentionRun struct {
-	Scan           *caprepo.RetentionProgress `json:"scan,omitempty"`
-	PreviewID      string                     `json:"preview_id,omitempty"`
-	Cutoffs        *caprepo.RetentionCutoffs  `json:"cutoffs,omitempty"`
-	ExpiresAt      *time.Time                 `json:"expires_at,omitempty"`
-	Trigger        string                     `json:"trigger,omitempty"`
-	PolicySnapshot *DatabaseRetentionPolicy   `json:"policy_snapshot,omitempty"`
-	ID             string                     `json:"id"`
-	Revision       int64                      `json:"revision"`
-	State          string                     `json:"state"`
-	At             time.Time                  `json:"at"`
-	Actor          uint64                     `json:"actor"`
-	Counts         caprepo.RetentionBatch     `json:"counts"`
-	Problem        string                     `json:"problem,omitempty"`
+	PreviousExpiryRun string                     `json:"previous_expiry_run,omitempty"`
+	Scan              *caprepo.RetentionProgress `json:"scan,omitempty"`
+	PreviewID         string                     `json:"preview_id,omitempty"`
+	Cutoffs           *caprepo.RetentionCutoffs  `json:"cutoffs,omitempty"`
+	ExpiresAt         *time.Time                 `json:"expires_at,omitempty"`
+	Trigger           string                     `json:"trigger,omitempty"`
+	PolicySnapshot    *DatabaseRetentionPolicy   `json:"policy_snapshot,omitempty"`
+	ID                string                     `json:"id"`
+	Revision          int64                      `json:"revision"`
+	State             string                     `json:"state"`
+	At                time.Time                  `json:"at"`
+	Actor             uint64                     `json:"actor"`
+	Counts            caprepo.RetentionBatch     `json:"counts"`
+	Problem           string                     `json:"problem,omitempty"`
 }
 type databaseRetentionDocument struct {
 	Policy DatabaseRetentionPolicy `json:"policy"`
@@ -237,6 +238,15 @@ func (s *Service) runDatabaseRetentionCycle(ctx context.Context, onError func(er
 	if configuration.Authority != "database" || !configuration.ExecutionReady || !policy.Enabled {
 		return
 	}
+	// 跨调度窗口的大扫描先给到期复查一批，避免慢的历史分类持续占满时间预算。
+	checkpoint, err := s.readRetentionCheckpoint(cycle, s.opts.DB)
+	if err != nil {
+		if onError != nil {
+			onError(err)
+		}
+		return
+	}
+	expiryFirst := checkpoint != nil && checkpoint.Revision == policy.Revision && !checkpoint.Progress.Complete
 	const batchTimeout = 10 * time.Second
 	for batch := 0; batch < 100 && cycle.Err() == nil; batch++ {
 		// 为下一批留足完整事务预算；主动让出本轮，保留已提交的游标供下轮继续。
@@ -245,7 +255,8 @@ func (s *Service) runDatabaseRetentionCycle(ctx context.Context, onError func(er
 			return
 		}
 		run, cancelBatch := context.WithTimeout(cycle, batchTimeout)
-		out, err := s.databaseBatch(run, 0, uuid.NewString(), true, true)
+		expiryOnly := (batch%2 == 0) == expiryFirst
+		out, err := s.databaseBatchConfirmed(run, 0, uuid.NewString(), "", true, true, expiryOnly)
 		cancelBatch()
 		if err != nil {
 			if onError != nil {
@@ -259,7 +270,7 @@ func (s *Service) runDatabaseRetentionCycle(ctx context.Context, onError func(er
 			}
 			return
 		}
-		if out.Scan == nil || out.Scan.Complete {
+		if out.Scan == nil || (!expiryOnly && out.Scan.Complete) {
 			return
 		}
 	}
