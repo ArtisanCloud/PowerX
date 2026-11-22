@@ -11,6 +11,58 @@ import verify_recovery
 
 
 class TransitionTests(unittest.TestCase):
+    def test_notifications_rearm_only_after_confirmed_recovery(self):
+        with tempfile.TemporaryDirectory() as root:
+            fs = {'available_bytes': 15 * capacity.GIB, 'used_ratio': .8}
+            with patch.object(capacity, 'STATE', Path(root)), \
+                    patch.object(capacity, 'filesystem', return_value=fs), \
+                    patch.object(capacity, 'runtime_health', return_value=({'healthy': True}, 1)), \
+                    patch.object(capacity, 'retention_status', return_value={}), \
+                    patch.object(capacity, 'idle_retention_status', return_value={'state': 'not_installed'}), \
+                    patch.object(capacity.time, 'time', return_value=1000) as clock, \
+                    patch.object(capacity, 'send_personal', return_value={'status': 'api_accepted'}) as send:
+                self.assertEqual(capacity.observe(True)['severity'], 'warning')
+                send.assert_not_called()
+                fs['available_bytes'] = 11 * capacity.GIB
+                capacity.observe(True)
+                first_identity = send.call_args.args[1]
+                clock.return_value += 7200
+                capacity.observe(True)
+                send.assert_called_once()
+                fs['available_bytes'] = 30 * capacity.GIB
+                for _ in range(capacity.RECOVERY_SAMPLES):
+                    self.assertEqual(capacity.observe(True)['severity'], 'ok')
+                send.assert_called_once()
+                fs['available_bytes'] = 11 * capacity.GIB
+                capacity.observe(True)
+                self.assertEqual(send.call_count, 2)
+                self.assertNotEqual(send.call_args.args[1], first_identity)
+
+    def test_monitor_failure_retries_same_alert_and_preserves_existing_incident(self):
+        with tempfile.TemporaryDirectory() as root:
+            state = Path(root)
+            prior = {'critical_incidents': {'old-disk': {'reasons': {'disk': 0}, 'accepted': True}}}
+            (state / 'capacity-latest.json').write_text(json.dumps(prior))
+            failed = {'status': 'failed', 'reason': 'fixture'}
+            with patch.object(capacity, 'STATE', state), \
+                    patch.object(capacity.time, 'time', return_value=1000) as clock, \
+                    patch.object(capacity, 'send_personal',
+                                 side_effect=[TimeoutError(), {'status': 'api_accepted'}]) as send:
+                capacity.observe_failure(failed)
+                first_identity = send.call_args.args[1]
+                clock.return_value += 60
+                capacity.observe_failure(failed)
+                send.assert_called_once()
+                clock.return_value += capacity.NOTIFICATION_RETRY_SECONDS
+                capacity.observe_failure(failed)
+                self.assertEqual(send.call_count, 2)
+                self.assertEqual(send.call_args.args[1], first_identity)
+                clock.return_value += 7200
+                capacity.observe_failure(failed)
+                self.assertEqual(send.call_count, 2)
+            latest = json.loads((state / 'capacity-latest.json').read_text())
+            self.assertEqual(latest['critical_incidents']['old-disk'], prior['critical_incidents']['old-disk'])
+
     def test_upgraded_observation_never_calls_legacy_mutations_and_preserves_ownership(self):
         with tempfile.TemporaryDirectory() as root:
             state = Path(root)

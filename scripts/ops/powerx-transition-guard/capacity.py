@@ -12,6 +12,7 @@ import subprocess
 import time
 import urllib.request
 import re
+import uuid
 import yaml
 from notify import send_personal
 import log_output_health
@@ -21,6 +22,16 @@ STATE = Path('/var/lib/powerx-ops/transition-20261109')
 TOOLS = Path('/opt/powerx-ops/transition-20261109')
 SNAPSHOT = Path('/opt/powerx/storage/system-snapshots')
 EXPECTED_COMMIT = 'dc8583939bfb524dbd349fe645652e746deffc74'
+MONITOR_KIND = 'monitor_only_no_schedule_changes_or_deletion'
+CRITICAL_LABELS = {
+    'disk': '磁盘容量告急',
+    'core': 'Core 健康检查失败',
+    'log_outputs': '无可用日志出口',
+    'idle_retention': '空消费维护异常',
+    'monitor': '临时监控检查失败',
+}
+RECOVERY_SAMPLES = 3
+NOTIFICATION_RETRY_SECONDS = 300
 
 
 def atomic_json(path, obj):
@@ -126,11 +137,14 @@ def runtime_health(prior):
     result['log_outputs'] = outputs
     enabled = [s for row in outputs.get('services', []) for name, s in row.get('sinks', {}).items() if name == 'loki' and s['enabled']]
     result['loki_push_status'] = (204 if all(s['available'] for s in enabled) else 0) if enabled else None
-    result['healthy'] = (all(result.get(prefix + 'core_status') == 200
-                             and isinstance(result.get(prefix + 'core_seconds'), (float, int))
-                             and result[prefix + 'core_seconds'] < 2 for prefix in ('', 'dev_'))
-                         and outputs['healthy'])
+    result['healthy'] = http_healthy(result) and outputs['healthy']
     return result, checked
+
+
+def http_healthy(health):
+    return all(health.get(prefix + 'core_status') == 200
+               and isinstance(health.get(prefix + 'core_seconds'), (float, int))
+               and health[prefix + 'core_seconds'] < 2 for prefix in ('', 'dev_'))
 
 
 def retention_status():
@@ -179,51 +193,115 @@ def idle_retention_failed(value):
                for item in value.get('databases', {}).values())
 
 
+def critical_reasons(fs, health, idle_failed):
+    active = set()
+    if fs.get('available_bytes', 20 * GIB) < 12 * GIB or fs.get('used_ratio', 0) >= .88:
+        active.add('disk')
+    core_healthy = http_healthy(health) if 'core_status' in health else health.get('healthy', True)
+    if not core_healthy:
+        active.add('core')
+    if health.get('log_outputs', {}).get('healthy') is False:
+        active.add('log_outputs')
+    if idle_failed:
+        active.add('idle_retention')
+    return active
+
+
+def notify_critical(report, active, text, prior_active=(), unknown=()):
+    """只通知新出现的严重问题，并保留同一通知编号用于失败重试。"""
+    incidents = report.setdefault('critical_incidents', {})
+    if (prior_active and not incidents and report.get('severity') == 'critical'
+            and report.get('notification', {}).get('status') == 'api_accepted'):
+        # 沿用旧监控已发送的告警，部署时不补发同一故障。
+        incidents['previously_notified'] = {
+            'reasons': dict.fromkeys(prior_active, 0), 'accepted': True,
+        }
+    known = set()
+    for key, incident in list(incidents.items()):
+        reasons = incident['reasons']
+        for reason in list(reasons):
+            if reason in unknown:
+                continue
+            if reason in active:
+                reasons[reason] = 0
+            else:
+                reasons[reason] += 1
+                if reasons[reason] >= RECOVERY_SAMPLES:
+                    del reasons[reason]
+        if not reasons:
+            del incidents[key]
+        known.update(reasons)
+    new = active - known
+    if new:
+        incidents[uuid.uuid4().hex] = {'reasons': dict.fromkeys(sorted(new), 0)}
+
+    now = time.time()
+    for key, incident in incidents.items():
+        present = active.intersection(incident['reasons'])
+        if not present or incident.get('accepted') or now - incident.get('attempted_at', 0) < NOTIFICATION_RETRY_SECONDS:
+            continue
+        incident['attempted_at'] = now
+        report['event_id'] = key
+        state = STATE / 'capacity-latest.json'
+        # 提交通知前持久化编号，进程中断后仍用同一个飞书去重编号。
+        atomic_json(state, report)
+        summary = '、'.join(CRITICAL_LABELS[reason] for reason in sorted(present))
+        try:
+            report['notification'] = send_personal(
+                'PowerX 严重告警\n' + summary + '\n' + text, 'powerx-monitor-critical-' + key,
+            )
+            if report['notification']['status'] == 'api_accepted':
+                report['notification_at'] = time.time()
+                incident['accepted'] = True
+        except Exception as error:
+            report['notification'] = {'status': 'failed', 'error_type': type(error).__name__}
+        atomic_json(state, report)
+
+
 def observe(apply):
     """升级后仅观测与通知；不调用旧计划开关、期限删除或接管入口。"""
     STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
-    lock = (STATE / 'capacity.lock').open('a')
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        print(json.dumps({'status': 'skipped', 'reason': 'already_running'}))
-        return
+    with (STATE / 'capacity.lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print(json.dumps({'status': 'skipped', 'reason': 'already_running'}))
+            return
+        return observe_locked(apply)
+
+
+def observe_locked(apply):
     prior = json.loads((STATE / 'capacity-latest.json').read_text()) if (STATE / 'capacity-latest.json').exists() else {}
     fs = filesystem()
     health, health_at = runtime_health(prior)
     retention = retention_status()
     idle = idle_retention_status()
     idle_failed = idle_retention_failed(idle)
-    severity = ('critical' if fs['available_bytes'] < 12 * GIB or fs['used_ratio'] >= .88
-                or not health.get('healthy') or idle_failed else 'warning' if fs['available_bytes'] < 20 * GIB or health.get('log_outputs', {}).get('degraded') else 'ok')
+    active = critical_reasons(fs, health, idle_failed)
+    severity = ('critical' if active else 'warning'
+                if fs['available_bytes'] < 20 * GIB or health.get('log_outputs', {}).get('degraded') else 'ok')
     # 完整保留旧调度所有权、水位及未知结果；只读监控不处理这些写入职责。
     report = {**prior, 'at': dt.datetime.now(dt.timezone.utc).isoformat(),
               'severity': severity, 'filesystem': fs, 'runtime_health': health,
               'health_checked_at': health_at, 'retention_executor': retention,
               'idle_taskqueue_retention': idle,
               'idle_retention_failed': idle_failed,
-              'guard_kind': 'monitor_only_no_schedule_changes_or_deletion',
+              'guard_kind': MONITOR_KIND,
               'automatic_cleanup_active': False, 'handoff_complete': False,
               'changes': [], 'failure': None}
-    changed = (severity != prior.get('severity') or report['guard_kind'] != prior.get('guard_kind')
-               or idle_failed != prior.get('idle_retention_failed', False) or log_output_health.changed(prior, health))
-    due = time.time() - prior.get('notification_at', 0) > 3600
-    if apply and (changed or severity != 'ok' and due):
-        report['event_id'] = str(time.time_ns()) if changed else prior.get('event_id') or str(time.time_ns())
-        text = ('PowerX 运维%s\n服务器：47.116.10.200\n临时磁盘监控已运行（仅监控与通知）'
-                '\n可用空间：%.2f GiB\n物理使用率：%.2f%%'
-                '\n旧执行器未接管；七天空消费维护：dev=%s，prod=%s。'
-                % ('恢复' if severity == 'ok' else '告警', fs['available_bytes']/GIB,
-                   fs['used_ratio']*100,
-                   idle.get('databases', {}).get('dev', {}).get('state', idle['state']),
-                   idle.get('databases', {}).get('prod', {}).get('state', idle['state'])))
-        try:
-            report['notification'] = send_personal(text + log_output_health.alert_text(health), 'powerx-monitor-' + report['event_id'])
-            if report['notification']['status'] == 'api_accepted':
-                report['notification_at'] = time.time()
-        except Exception as error:
-            report['notification'] = {'status': 'failed', 'error_type': type(error).__name__}
     if apply:
+        prior_active = ()
+        if ('critical_incidents' not in prior and prior.get('severity') == 'critical'
+                and prior.get('guard_kind') == MONITOR_KIND):
+            prior_active = critical_reasons(prior.get('filesystem', {}), prior.get('runtime_health', {}),
+                                            prior.get('idle_retention_failed', False))
+        display = ('服务器：47.116.10.200\n可用空间：%.2f GiB\n物理使用率：%.2f%%'
+                   % (fs['available_bytes'] / GIB, fs['used_ratio'] * 100))
+        if 'idle_retention' in active:
+            display += '\n空消费维护：dev=%s，prod=%s。' % tuple(
+                idle.get('databases', {}).get(env, {}).get('state', idle['state']) for env in ('dev', 'prod')
+            )
+        notify_critical(report, active, display + log_output_health.alert_text(health), prior_active)
         atomic_json(STATE / 'capacity-latest.json', report)
         history = STATE / 'capacity-observations'
         history.mkdir(exist_ok=True, mode=0o700)
@@ -233,6 +311,18 @@ def observe(apply):
                 path.unlink()
     print(json.dumps(report, ensure_ascii=False))
     return report
+
+
+def observe_failure(failed):
+    with (STATE / 'capacity.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        state = STATE / 'capacity-latest.json'
+        prior = json.loads(state.read_text()) if state.exists() else {}
+        prior.update({'severity': 'critical', 'failure': failed, 'at': dt.datetime.now(dt.timezone.utc).isoformat()})
+        # 本轮其余检查未知，保留已有事件状态，不把检测失败视作恢复。
+        notify_critical(prior, {'monitor'}, '服务器：47.116.10.200\n请核对服务器监控回执。',
+                        unknown=set(CRITICAL_LABELS) - {'monitor'})
+        atomic_json(state, prior)
 
 
 def run(apply):
@@ -314,11 +404,14 @@ if __name__ == '__main__':
                   'reason': str(error) if isinstance(error, RuntimeError) else 'operation_failed'}
         if args.apply:
             try:
-                old = json.loads((STATE / 'capacity-latest.json').read_text()) if (STATE / 'capacity-latest.json').exists() else {}
-                old.update({'severity': 'critical', 'failure': failed, 'at': dt.datetime.now(dt.timezone.utc).isoformat()})
-                identity = 'powerx-guard-failed-' + failed['reason'] + '-' + str(int(time.time()//3600))
-                old['notification'] = send_personal('PowerX 运维告警\n47.116.10.200 临时容量执行器停止，需要核对服务器回执。原因：' + failed['reason'], identity)
-                atomic_json(STATE / 'capacity-latest.json', old)
+                if args.observe_only:
+                    observe_failure(failed)
+                else:
+                    old = json.loads((STATE / 'capacity-latest.json').read_text()) if (STATE / 'capacity-latest.json').exists() else {}
+                    old.update({'severity': 'critical', 'failure': failed, 'at': dt.datetime.now(dt.timezone.utc).isoformat()})
+                    identity = 'powerx-guard-failed-' + failed['reason'] + '-' + str(int(time.time()//3600))
+                    old['notification'] = send_personal('PowerX 运维告警\n47.116.10.200 临时容量执行器停止，需要核对服务器回执。原因：' + failed['reason'], identity)
+                    atomic_json(STATE / 'capacity-latest.json', old)
             except Exception:
                 failed['notification'] = 'not_delivered'
         print(json.dumps(failed))
