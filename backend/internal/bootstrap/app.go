@@ -159,6 +159,8 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	// 构建应用依赖（认证 / 审计等）
 	accessTTL, _ := time.ParseDuration(cfg.Auth.AccessTTLStr)
 	refreshTTL, _ := time.ParseDuration(cfg.Auth.RefreshTTLStr)
+	// 客户端（小程序等）登录态固定一个月，不跟随后台 auth.access_ttl
+	customerAccessTTL := 30 * 24 * time.Hour
 	localTokenSecret := strings.TrimSpace(cfg.Storage.Local.UploadTokenSecret)
 	if localTokenSecret == "" {
 		logger.WarnF(ctx, "storage.local.upload_token_secret 未配置，本地上传端点不会注册")
@@ -245,7 +247,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			Issuer:     cfg.Auth.Issuer,
 			Audience:   cfg.Auth.AudienceCustomer,
 			Platforms:  cfg.Auth.Platforms,
-			AccessTTL:  accessTTL,
+			AccessTTL:  customerAccessTTL,
 			RefreshTTL: refreshTTL,
 		},
 		Audit: auditsvc.AuditOptions{

@@ -96,12 +96,12 @@ function applyViewportFill() {
   height.value = clamp(getViewportAvailableHeight(), true);
 }
 
+// 只让 html 作为 iframe 文档的滚动容器：body 若也设 overflow:auto 会成为一个不可滚动的滚动容器，
+// 新版 Chrome 会对它应用 overscroll-behavior:contain，滚轮落在 body 上既滚不动也无法传给 html（拖滚动条正常）。
 function ensureIframeDocumentScroll(doc: Document) {
   doc.documentElement.style.overflowY = "auto";
   doc.documentElement.style.overflowX = "hidden";
-  doc.body.style.overflowY = "auto";
-  doc.body.style.overflowX = "hidden";
-  doc.body.style.overscrollBehavior = "contain";
+  doc.documentElement.style.overscrollBehavior = "contain";
 }
 
 function measureDocumentContentHeight(doc: Document) {
