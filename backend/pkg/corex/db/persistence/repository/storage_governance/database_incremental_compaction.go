@@ -11,6 +11,7 @@ import (
 
 	registry "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/sys/unix"
 )
 
@@ -28,6 +29,8 @@ const (
 	incrementalPages                       = 1024
 	incrementalPagesPerTransaction         = 32
 	incrementalRowsPerTransaction          = 500
+	incrementalMoveTimeLimit               = 4 * time.Second
+	incrementalRollbackReserve             = time.Second
 	incrementalVersionsPerTransaction      = 1200
 	incrementalSlicesPerRun                = 64
 	incrementalTruncationRetries           = 2
@@ -610,8 +613,8 @@ WHERE `+fsm+`($1::oid::regclass,b)>=2048 OFFSET 7)`, table.OID, early, step).Sca
 	return nil
 }
 
-func moveIncrementalWindow(ctx context.Context, c *sql.Conn, name string, table MaintenanceTable, start, end, walLimit int64) error {
-	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
+func moveIncrementalWindow(parent context.Context, c *sql.Conn, name string, table MaintenanceTable, start, end, walLimit int64) error {
+	ctx, cancel := context.WithTimeout(parent, incrementalMoveTimeLimit)
 	defer cancel()
 	tx, e := c.BeginTx(ctx, nil)
 	if e != nil {
@@ -654,6 +657,16 @@ FROM candidates`, lo, hi, class, incrementalRowsPerTransaction+1).Scan(&position
 		if written > incrementalVersionsPerTransaction {
 			return ErrIncrementalLimit
 		}
+		// 让 PostgreSQL 先取消慢 UPDATE，给同一维护连接留出回滚时间。
+		// 只有本次搬行的预算耗尽才能缩小窗口，外层取消仍应停止整轮。
+		deadline, _ := ctx.Deadline()
+		ms := (time.Until(deadline) - incrementalRollbackReserve).Milliseconds()
+		if ms <= 0 {
+			return rollbackSlowIncrementalMove(parent, tx)
+		}
+		if _, e = tx.ExecContext(ctx, `SELECT set_config('statement_timeout',$1,true)`, fmt.Sprintf("%dms", ms)); e != nil {
+			return e
+		}
 		var moved, pastEnd int
 		e = tx.QueryRowContext(ctx, `
 WITH moved AS (
@@ -663,7 +676,7 @@ SELECT COALESCE(array_agg(ctid) FILTER (WHERE ctid >= $2::tid),'{}')::text,
  count(*),count(*) FILTER (WHERE ctid >= $3::tid)
 FROM moved`, positions, lo, hi).Scan(&positions, &moved, &pastEnd)
 		if e != nil {
-			return e
+			return incrementalUpdateError(parent, tx, e)
 		}
 		if pastEnd != 0 || moved != remaining {
 			return ErrIncrementalCapacity
@@ -690,4 +703,25 @@ FROM moved`, positions, lo, hi).Scan(&positions, &moved, &pastEnd)
 		return ErrIncrementalCapacity
 	}
 	return tx.Commit()
+}
+
+func incrementalUpdateError(parent context.Context, tx *sql.Tx, err error) error {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "57014" || pgErr.Message != "canceling statement due to statement timeout" {
+		return err
+	}
+	return rollbackSlowIncrementalMove(parent, tx)
+}
+
+func rollbackSlowIncrementalMove(parent context.Context, tx *sql.Tx) error {
+	if err := tx.Rollback(); err != nil {
+		return fmt.Errorf("rollback of timed out relocation: %w", err)
+	}
+	if err := parent.Err(); err != nil {
+		return err
+	}
+	if deadline, ok := parent.Deadline(); ok && time.Until(deadline) <= incrementalRollbackReserve {
+		return context.DeadlineExceeded
+	}
+	return ErrIncrementalLimit
 }
