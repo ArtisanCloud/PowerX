@@ -1735,7 +1735,7 @@
       "lockTitle": "Compaction blocks reads and writes on selected tables",
       "lockHint": "Each table has a 15-minute limit and a 2-second lock wait. Use a maintenance window. Cancellation stops unfinished steps; completed maintenance remains.",
       "incrementalLockTitle": "Returning space briefly attempts to lock the selected table",
-      "incrementalLockHint": "A run handles up to 64 slices in 12 minutes, at up to 1,024 tail pages per slice. Run during low traffic.",
+      "incrementalLockHint": "A run handles up to 64 slices in 12 minutes, at up to 16,384 tail pages per slice. Run during low traffic.",
       "incrementalProgress": "Slices completed: {count}. Verified heap reduction: {space} bytes.",
       "batchDetails": {
         "title": "View batch results",

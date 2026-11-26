@@ -1735,7 +1735,7 @@
       "lockTitle": "物理缩容会阻塞选定表读写",
       "lockHint": "每张表最多执行 15 分钟，取锁最多等待 2 秒。请安排维护窗口；取消会停止未完成的步骤，已完成的整理会保留。",
       "incrementalLockTitle": "归还空间时会短暂尝试锁住选定表",
-      "incrementalLockHint": "单次最多 64 批、12 分钟，每批最多处理 1,024 个尾部页。请在低峰执行。",
+      "incrementalLockHint": "单次最多 64 批、12 分钟，每批最多处理 16,384 个尾部页。请在低峰执行。",
       "incrementalProgress": "已完成 {count} 批，已验证主表文件共减少 {space} 字节",
       "batchDetails": {
         "title": "查看每批结果",

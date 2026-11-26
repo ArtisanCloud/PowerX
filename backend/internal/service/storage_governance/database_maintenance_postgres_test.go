@@ -457,6 +457,11 @@ func TestDatabaseMaintenanceNativePostgresIncrementalPreservesAuditOnPartialStop
 	require.NoError(t, db.Exec("VACUUM (TRUNCATE FALSE, INDEX_CLEANUP ON, PARALLEL 0) "+name).Error)
 	businessName := pgx.Identifier{coremodel.PowerXSchema, "orders"}.Sanitize()
 	require.NoError(t, db.Exec("CREATE TABLE "+businessName+" (id int PRIMARY KEY, amount int); INSERT INTO "+businessName+" VALUES(1,987)").Error)
+	// Derive the reclaimable suffix before the run from the protected fixture row.
+	var suffixPages int64
+	require.NoError(t, db.Raw("SELECT pg_relation_size(?::regclass)/8192 - (ctid::text::point)[0]::bigint - 1 FROM ONLY "+name+" WHERE id=138000", name).Scan(&suffixPages).Error)
+	require.Greater(t, suffixPages, int64(1024))
+	require.Less(t, suffixPages, int64(2048))
 	auditDigest := maintenanceDataDigest(t, db, auditName)
 	businessDigest := maintenanceDataDigest(t, db, "orders")
 	notificationDigest := maintenanceDataDigest(t, db, "capability_registry_event_publications")
@@ -485,14 +490,19 @@ func TestDatabaseMaintenanceNativePostgresIncrementalPreservesAuditOnPartialStop
 	require.Equal(t, auditID, final.Steps[0].TableID)
 	progress := final.Steps[0].Incremental
 	require.NotNil(t, progress)
-	require.Equal(t, 1, progress.SlicesCompleted)
-	require.EqualValues(t, 8<<20, progress.HeapReclaimedBytes)
+	require.Equal(t, 2, progress.SlicesCompleted)
+	require.Equal(t, suffixPages*8192, progress.HeapReclaimedBytes)
 	batches := final.Steps[0].IncrementalBatches
-	require.Len(t, batches, 2)
-	require.Empty(t, batches[0].StopPhase)
-	require.Equal(t, "eligibility", batches[1].StopPhase)
-	require.Zero(t, batches[1].VacuumAttempts)
-	require.Nil(t, batches[1].TableChangeBytes)
+	require.Len(t, batches, 3)
+	require.EqualValues(t, 1024, batches[0].TailPages)
+	require.EqualValues(t, suffixPages-1024, batches[1].TailPages)
+	for _, b := range batches[:2] {
+		require.Empty(t, b.StopPhase)
+		require.Equal(t, b.TailPages*8192, b.HeapReclaimedBytes)
+	}
+	require.Equal(t, "eligibility", batches[2].StopPhase)
+	require.Zero(t, batches[2].VacuumAttempts)
+	require.Nil(t, batches[2].TableChangeBytes)
 	require.NotNil(t, final.After)
 	require.Equal(t, auditDigest, maintenanceDataDigest(t, db, auditName))
 	require.Equal(t, businessDigest, maintenanceDataDigest(t, db, "orders"))

@@ -68,6 +68,7 @@ type MaintenanceIncrementalProgress struct {
 
 // MaintenanceIncrementalBatch records one attempted slice, including partial progress.
 type MaintenanceIncrementalBatch struct {
+	TailPages          int64  `json:"tail_pages,omitempty"`
 	ElapsedMS          int64  `json:"elapsed_ms"`
 	VacuumAttempts     int    `json:"vacuum_attempts"`
 	TruncateLockWaits  int    `json:"truncate_lock_waits,omitempty"`
