@@ -1448,7 +1448,7 @@
       "lockTitle": "Compaction blocks reads and writes on selected tables",
       "lockHint": "Each table has a 15-minute limit and a 2-second lock wait. Use a maintenance window. Cancellation stops unfinished steps; completed maintenance remains.",
       "incrementalLockTitle": "領域返却時に選択したテーブルの短時間ロックを試みます",
-      "incrementalLockHint": "1 回の実行は最大 64 バッチ、12 分です。各バッチで末尾の最大 1,024 ページを処理します。負荷の低い時間帯に実行してください。",
+      "incrementalLockHint": "1 回の実行は最大 64 バッチ、12 分です。各バッチで末尾の最大 16,384 ページを処理します。負荷の低い時間帯に実行してください。",
       "incrementalProgress": "{count} バッチ完了。確認済みのヒープ削減量は {space} バイトです。",
       "batchDetails": {
         "title": "各バッチの結果を表示",

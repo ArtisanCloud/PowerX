@@ -1448,7 +1448,7 @@
       "lockTitle": "Compaction blocks reads and writes on selected tables",
       "lockHint": "Each table has a 15-minute limit and a 2-second lock wait. Use a maintenance window. Cancellation stops unfinished steps; completed maintenance remains.",
       "incrementalLockTitle": "공간을 반환할 때 선택한 테이블의 잠금을 잠시 시도합니다",
-      "incrementalLockHint": "한 번에 최대 64개 배치 또는 12분 동안 끝부분을 배치당 1,024페이지까지 처리합니다. 사용량이 적은 시간에 실행하세요.",
+      "incrementalLockHint": "한 번에 최대 64개 배치 또는 12분 동안 끝부분을 배치당 16,384페이지까지 처리합니다. 사용량이 적은 시간에 실행하세요.",
       "incrementalProgress": "{count}개 배치 완료. 확인된 힙 감소량 {space}바이트.",
       "batchDetails": {
         "title": "배치별 결과 보기",

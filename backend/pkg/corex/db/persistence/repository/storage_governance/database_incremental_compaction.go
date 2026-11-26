@@ -227,11 +227,25 @@ func (r *DatabaseMaintenanceRepository) CheckIncremental(ctx context.Context, sn
 	}
 	name := pgx.Identifier{r.schema, maintenanceTables[table.ID]}.Sanitize()
 	end := table.HeapBytes / incrementalBlockBytes
-	return incrementalPrecheck(ctx, c, name, fsm, table, incrementalStart(end), end)
+	_, e = incrementalTailStart(ctx, c, name, fsm, table, max(1, end-incrementalPages), end)
+	return e
 }
 
-func incrementalStart(end int64) int64 {
-	return max(int64(1), end-incrementalPages)
+// Keep small relations on short slices. For larger ones, only use a fraction
+// of the admitted WAL budget for the tail in a single slice. WAL itself is
+// measured and guarded independently throughout the run.
+func incrementalPageLimit(heapBytes, peakBytes int64) int64 {
+	const maxPages = 16384
+	walBudget := max(int64(0), peakBytes-IncrementalMaintenanceNonWALBytes)
+	return max(int64(incrementalPages), min(int64(maxPages), heapBytes/(128*incrementalBlockBytes), walBudget/(2*incrementalBlockBytes)))
+}
+
+func growIncrementalWindow(pages, limit int64, batch MaintenanceIncrementalBatch) int64 {
+	if batch.VacuumAttempts == 1 && batch.ElapsedMS < (incrementalRunLimit/3).Milliseconds() &&
+		batch.HeapReclaimedBytes >= pages*incrementalBlockBytes && batch.TableChangeBytes != nil && *batch.TableChangeBytes < 0 {
+		return min(2*pages, limit)
+	}
+	return max(int64(incrementalPages), pages/2)
 }
 
 // WAL traffic can be recycled into existing files. Keep separate limits for
@@ -346,6 +360,8 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 	// Small relations need fewer repeated index passes.
 	slices := min(incrementalSlicesPerRun, max(4, table.HeapBytes/(32<<20)))
 	deadline, _ := ctx.Deadline()
+	pageLimit := incrementalPageLimit(table.HeapBytes, peakBytes)
+	pages := int64(incrementalPages)
 	runSlice := func(batch *MaintenanceIncrementalBatch) error {
 		batch.StopPhase = "checks"
 		if e := check(); e != nil {
@@ -359,11 +375,12 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 		// current relation size so concurrent growth also consumes that credit.
 		walLimit = initialWAL.fileBytes + walGrowthBudget + max(0, initialTotal-table.TotalBytes)
 		end := table.HeapBytes / incrementalBlockBytes
-		start := incrementalStart(end)
 		batch.StopPhase = "eligibility"
-		if e := incrementalPrecheck(ctx, c, name, fsm, table, start, end); e != nil {
+		start, e := incrementalTailStart(ctx, c, name, fsm, table, max(1, end-pages), end)
+		if e != nil {
 			return e
 		}
+		batch.TailPages = end - start
 		batch.StopPhase = "relocation"
 		if e := prepareIncrementalTail(ctx, c, name, table, start, end, check, pace, walLimit); e != nil {
 			return e
@@ -402,6 +419,7 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 		if e != nil {
 			return &IncrementalBatchStop{Batch: batch, cause: e}
 		}
+		pages = growIncrementalWindow(pages, pageLimit, batch)
 		if e = report(MaintenanceIncrementalReport{Batch: &batch}); e != nil {
 			return e
 		}
@@ -579,25 +597,34 @@ func incrementalTID(block int64) string {
 	return fmt.Sprintf("(%d,0)", block)
 }
 
-func incrementalPrecheck(ctx context.Context, c *sql.Conn, name, fsm string, table MaintenanceTable, start, end int64) error {
+// Use only the suffix strictly after the last protected heap block. Row
+// eligibility is checked again under the relation lock before every UPDATE.
+func incrementalTailStart(ctx context.Context, c *sql.Conn, name, fsm string, table MaintenanceTable, start, end int64) (int64, error) {
 	if end <= start {
-		return ErrIncrementalNoReclaim
+		return 0, ErrIncrementalNoReclaim
 	}
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
 	defer cancel()
-	var nonempty, protected bool
 	eligible, class, _ := incrementalPolicy(table.ID)
-	e := c.QueryRowContext(ctx, `SELECT count(*)>0, COALESCE(bool_or(NOT (`+eligible+`)),false)
-FROM ONLY `+name+` AS entry WHERE `+incrementalRange,
-		incrementalTID(start), incrementalTID(end), class).Scan(&nonempty, &protected)
+	var lastProtected, lastOccupied sql.NullInt64
+	// Expose the PostgreSQL block number only for tuples in the TID range.
+	e := c.QueryRowContext(ctx, `SELECT max(block) FILTER (WHERE NOT eligible), max(block)
+FROM (SELECT (ctid::text::point)[0]::bigint AS block, (`+eligible+`) AS eligible
+      FROM ONLY `+name+` AS entry WHERE `+incrementalRange+`) AS tail`,
+		incrementalTID(start), incrementalTID(end), class).Scan(&lastProtected, &lastOccupied)
 	if e != nil {
-		return e
+		return 0, e
 	}
-	if protected {
-		return ErrIncrementalProtected
+	if lastProtected.Valid {
+		start = lastProtected.Int64 + 1
+		// PG16 lazy VACUUM uses the lesser of 1000 blocks and rel_pages/16
+		// to decide whether to attempt truncation.
+		if end-start < max(int64(1), min(int64(1000), end/16)) {
+			return 0, ErrIncrementalProtected
+		}
 	}
-	if !nonempty {
-		return nil
+	if !lastOccupied.Valid || lastOccupied.Int64 < start {
+		return start, nil
 	}
 	var space bool
 	early := min(start, end*7/10)
@@ -605,12 +632,12 @@ FROM ONLY `+name+` AS entry WHERE `+incrementalRange,
 	e = c.QueryRowContext(ctx, `SELECT EXISTS(SELECT FROM generate_series(0::bigint,$2::bigint-1,$3::bigint) b
 WHERE `+fsm+`($1::oid::regclass,b)>=2048 OFFSET 7)`, table.OID, early, step).Scan(&space)
 	if e != nil {
-		return e
+		return 0, e
 	}
 	if !space {
-		return ErrIncrementalCapacity
+		return 0, ErrIncrementalCapacity
 	}
-	return nil
+	return start, nil
 }
 
 func moveIncrementalWindow(parent context.Context, c *sql.Conn, name string, table MaintenanceTable, start, end, walLimit int64) error {
