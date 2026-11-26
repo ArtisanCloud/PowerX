@@ -1,7 +1,7 @@
 # PowerX 部署快速手册（Docker / systemd）
 
 ## 1. 适用范围
-- 功能分支：`025-powerx-docker-systemd`
+- 已安装的 systemd dev 和 prod 从 `origin/develop` 发布。[日常更新、验收和回滚](systemd/develop-release.md)
 - 目标：提供可直接执行的部署、验收、回滚操作。
 - 范围：`backend`、`runner`、`web-admin` 三服务。
 

@@ -2,7 +2,7 @@
 
 ## 1. 目标
 在 Linux 上完成：
-1. 获取代码并切版本（tag/develop）
+1. 拉取 develop 并记录发布版本
 2. 构建 `dist/systemd/<version>`
 3. 部署到 `/opt/powerx/releases/<version>`
 4. systemd 启动并完成验证（首次安装才进入 `/setup`）
@@ -11,46 +11,24 @@
 - `00-runtime-deps-versions.md`（PowerX / PostgreSQL / Redis 版本与安装）
 - `00-nginx-install-config.md`（可选，生产建议）
 
-## 3. 统一变量
-```bash
-export POWERX_VERSION=v1.0.0
-# 预发可用 develop：
-# export POWERX_VERSION=develop
-```
+## 3. 源码和发布版本
+
+dev 和 prod 的日常发布分支为 `develop`。已安装实例的更新步骤见[从 develop 拉取、发布和验收](develop-release.md)。下文用于首次安装。
 
 ## 4. 获取代码
 
-机器无仓库：
-```bash
-git clone https://github.com/ArtisanCloud/PowerX.git
-cd PowerX
-git fetch --tags --prune
-```
+首次安装到空的源码目录：
 
-机器已有仓库：
 ```bash
+mkdir -p ~/workspace
+git clone --branch develop https://github.com/ArtisanCloud/PowerX.git ~/workspace/PowerX
 cd ~/workspace/PowerX
-git fetch --tags --prune
 ```
 
-## 5. 切到目标版本
+## 5. 记录发布版本
 
-生产推荐 tag：
 ```bash
-git checkout ${POWERX_VERSION}
-```
-
-预发用 develop：
-```bash
-git checkout develop
-git pull --ff-only origin develop
-export POWERX_VERSION=develop-$(date +%Y%m%d)
-```
-
-可选：切到最新 tag：
-```bash
-export POWERX_VERSION=$(git tag -l 'v*' --sort=-v:refname | head -n 1)
-git checkout ${POWERX_VERSION}
+test "$(git branch --show-current)" = develop && git pull --ff-only origin develop && export POWERX_VERSION="prod-$(date +%Y%m%d-%H%M%S)-$(git rev-parse --short HEAD)"
 ```
 
 ## 6. 构建 dist
@@ -266,13 +244,7 @@ export NO_PROXY=127.0.0.1,localhost,::1
 
 ## 11.1 已安装实例升级（默认不走 setup）
 
-发布切换：
-```bash
-export POWERX_VERSION=<new-version>
-make dist DIST_VERSION=${POWERX_VERSION} NPM_INSTALL=0
-sudo mv dist/systemd/${POWERX_VERSION} /opt/powerx/releases/
-sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION}
-```
+按[日常 systemd 发布流程](develop-release.md)构建和切换，再核对已安装状态。
 
 升级后校验：
 ```bash

@@ -12,6 +12,11 @@
 - 创建、拆分或切换 Git 分支前，必须先获得用户的明确允许；不得擅自执行。
 - 创建独立 worktree、checkout 或使用 detached HEAD 进行开发，同样必须先获得用户的明确允许，不得以隔离任务为由绕过上述规则。
 
+## systemd 实例的发布来源
+
+- dev 和 prod 的日常发布统一从 `origin/develop` 拉取已合并的提交。开发工作保留在当前分支，PR 以 `develop` 为目标。部署机在 `develop` 上用 `git pull --ff-only origin develop` 更新。
+- 已安装实例使用 `make dist` 生成带版本号和提交清单的产物，再运行对应环境的 systemd 切换脚本。交付时记录环境、提交、上一版和新版，并核对运行进程、健康接口及管理端。命令和回滚步骤见[从 develop 发布到已安装的 systemd 实例](docs/guides/deploy/025-powerx-docker-systemd/systemd/develop-release.md)。
+
 ## 调试服务进程管理
 
 - Agent 可以为开发、联调和验收临时启动服务，启动时必须记录进程 PID、启动命令、工作目录及监听端口，明确进程归属。
