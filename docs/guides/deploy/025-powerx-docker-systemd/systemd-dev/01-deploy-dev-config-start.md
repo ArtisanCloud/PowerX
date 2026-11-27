@@ -1,7 +1,5 @@
 # 01. Deploy Dev Config & Start
 
-已有 dev 实例请使用[从 develop 拉取、发布和验收](../systemd/develop-release.md)。以下步骤用于首次安装。
-
 ## 1. 目标
 在同一台机器上部署 dev release，并启动独立 systemd service：
 - `powerx-dev-backend.service`
