@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"os"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -107,4 +109,73 @@ func TestIncrementalTailExcludesProtectedPage(t *testing.T) {
 	start, err = incrementalTailStart(ctx, conn, "pg_temp.suf_probe", "unused", table, 0, end)
 	require.NoError(t, err)
 	require.Zero(t, start)
+}
+
+func TestIncrementalContinuesAfterRoundTimeBudget(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		continuous bool
+		targetAt   int
+		wantRounds []int
+		wantStop   string
+	}{
+		{"legacy request", false, 0, []int{0, 0}, "time_budget"},
+		{"continue to target", true, 3, []int{1, 1, 2}, "target_reached"},
+		{"continue until approved window", true, 0, []int{1, 1, 2}, "time_budget"},
+		{"target already reached", true, -1, nil, "target_reached"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(t.Context(), 19*time.Minute)
+				defer cancel()
+				var rounds []int
+				var reason string
+				var deadlines []time.Time
+				targetReached := func(context.Context) (bool, error) {
+					return tt.targetAt == -1 || tt.targetAt > 0 && tt.targetAt == len(rounds), nil
+				}
+				runSlice := func(ctx context.Context, _ *MaintenanceIncrementalBatch) error {
+					deadline, ok := ctx.Deadline()
+					require.True(t, ok)
+					deadlines = append(deadlines, deadline)
+					time.Sleep(5 * time.Minute)
+					return ctx.Err()
+				}
+				report := func(report MaintenanceIncrementalReport) error {
+					if report.Batch != nil {
+						require.EqualValues(t, (5 * time.Minute).Milliseconds(), report.Batch.ElapsedMS)
+						rounds = append(rounds, report.Batch.Round)
+					} else {
+						reason = report.StopReason
+					}
+					return nil
+				}
+				require.NoError(t, runIncrementalRounds(ctx, 64, tt.continuous, targetReached, runSlice, report))
+				require.Equal(t, tt.wantRounds, rounds)
+				require.Equal(t, tt.wantStop, reason)
+				if len(deadlines) == 3 {
+					windowEnd, _ := ctx.Deadline()
+					require.Equal(t, deadlines[0], deadlines[1])
+					require.Equal(t, windowEnd, deadlines[2])
+				}
+			})
+		})
+	}
+}
+
+func TestIncrementalDoesNotContinueAfterBatchProtection(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), time.Hour)
+	defer cancel()
+	attempts := 0
+	err := runIncrementalRounds(ctx, 1, true, func(context.Context) (bool, error) { return false, nil },
+		func(_ context.Context, batch *MaintenanceIncrementalBatch) error {
+			attempts++
+			batch.StopPhase = "vacuum"
+			return ErrIncrementalNoReclaim
+		}, func(MaintenanceIncrementalReport) error {
+			t.Fatal("an unsuccessful batch cannot schedule another round")
+			return nil
+		})
+	require.ErrorIs(t, err, ErrIncrementalNoReclaim)
+	require.Equal(t, 1, attempts)
 }

@@ -33,6 +33,8 @@ const (
 	incrementalRollbackReserve             = time.Second
 	incrementalVersionsPerTransaction      = 1200
 	incrementalSlicesPerRun                = 64
+	incrementalSlicesPerPlan               = 512
+	incrementalMinimumSliceTime            = 4 * time.Minute
 	incrementalTruncationRetries           = 2
 	incrementalWALBurstBytes               = 96 << 20
 	incrementalRunLimit                    = 12 * time.Minute
@@ -272,13 +274,16 @@ FROM pg_catalog.pg_current_wal_insert_lsn() AS lsn`, from).Scan(&s.lsn, &s.traff
 	return s, e
 }
 
-func (r *DatabaseMaintenanceRepository) executeIncremental(ctx context.Context, c *sql.Conn, snap MaintenanceSnapshot, id string, peakBytes int64, pid int, guard func(context.Context) error, report func(MaintenanceIncrementalReport) error) error {
+func (r *DatabaseMaintenanceRepository) executeIncremental(ctx context.Context, c *sql.Conn, snap MaintenanceSnapshot, id string, peakBytes int64, pid int, guard func(context.Context) error, report func(MaintenanceIncrementalReport) error, plan MaintenanceIncrementalPlan) error {
+	if !plan.Until.IsZero() {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, plan.Until)
+		defer cancel()
+	}
 	table, fsm, e := r.incrementalReady(ctx, c, snap, id)
 	if e != nil {
 		return e
 	}
-	ctx, cancel := context.WithTimeout(ctx, incrementalRunLimit)
-	defer cancel()
 	if _, e = c.ExecContext(ctx, `SELECT set_config('search_path','pg_catalog,pg_temp',false),
 set_config('lock_timeout','500ms',false),set_config('vacuum_cost_delay','5ms',false),
 set_config('vacuum_cost_limit','200',false),set_config('statement_timeout',$1,false)`,
@@ -300,7 +305,7 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 	walGrowthBudget := peakBytes - IncrementalMaintenanceNonWALBytes
 	walLimit := initialWAL.fileBytes + walGrowthBudget
 	burstStart := initialWAL.lsn
-	check := func() error {
+	check := func(ctx context.Context) error {
 		if e := guard(ctx); e != nil {
 			return e
 		}
@@ -316,7 +321,7 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 		}
 		return nil
 	}
-	pace := func() error {
+	pace := func(ctx context.Context) error {
 		sample, e := sampleIncrementalWAL(ctx, c, burstStart)
 		if e != nil {
 			return e
@@ -332,7 +337,7 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 				timer.Stop()
 				return ctx.Err()
 			}
-			if e = check(); e != nil {
+			if e = check(ctx); e != nil {
 				return e
 			}
 			// Resume only under the same task-level file growth limit and after
@@ -359,12 +364,11 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 	initialTotal := table.TotalBytes
 	// Small relations need fewer repeated index passes.
 	slices := min(incrementalSlicesPerRun, max(4, table.HeapBytes/(32<<20)))
-	deadline, _ := ctx.Deadline()
 	pageLimit := incrementalPageLimit(table.HeapBytes, peakBytes)
 	pages := int64(incrementalPages)
-	runSlice := func(batch *MaintenanceIncrementalBatch) error {
+	runSlice := func(ctx context.Context, batch *MaintenanceIncrementalBatch) error {
 		batch.StopPhase = "checks"
-		if e := check(); e != nil {
+		if e := check(ctx); e != nil {
 			return e
 		}
 		batch.StopPhase = "measurement"
@@ -382,10 +386,12 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 		}
 		batch.TailPages = end - start
 		batch.StopPhase = "relocation"
-		if e := prepareIncrementalTail(ctx, c, name, table, start, end, check, pace, walLimit); e != nil {
+		checkSlice := func() error { return check(ctx) }
+		paceSlice := func() error { return pace(ctx) }
+		if e := prepareIncrementalTail(ctx, c, name, table, start, end, checkSlice, paceSlice, walLimit); e != nil {
 			return e
 		}
-		after, e := r.reclaimIncrementalTail(ctx, c, name, table, start, end, walLimit, pid, check, pace, batch)
+		after, e := r.reclaimIncrementalTail(ctx, c, name, table, start, end, walLimit, pid, checkSlice, paceSlice, batch)
 		if e != nil {
 			return e
 		}
@@ -405,26 +411,78 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 		batch.StopPhase = ""
 		return nil
 	}
+	targetReached := func(ctx context.Context) (bool, error) {
+		if plan.TargetDatabaseBytes == 0 {
+			return false, nil
+		}
+		var current int64
+		err := c.QueryRowContext(ctx, "SELECT pg_catalog.pg_database_size(pg_catalog.current_database())").Scan(&current)
+		return current <= plan.TargetDatabaseBytes, err
+	}
+	return runIncrementalRounds(ctx, slices, !plan.Until.IsZero(), targetReached,
+		runSlice, func(result MaintenanceIncrementalReport) error {
+			if result.Batch != nil {
+				pages = growIncrementalWindow(pages, pageLimit, *result.Batch)
+			}
+			return report(result)
+		})
+}
+
+func runIncrementalRounds(ctx context.Context, slices int64, continuous bool, targetReached func(context.Context) (bool, error),
+	runSlice func(context.Context, *MaintenanceIncrementalBatch) error, report func(MaintenanceIncrementalReport) error) error {
+	windowEnd, hasWindowEnd := ctx.Deadline()
 	var previousSliceDuration time.Duration
-	for slice := int64(0); slice < slices; slice++ {
-		// A new index pass must fit the remaining time at the observed pace.
-		if slice > 0 && time.Until(deadline) < max(4*time.Minute, previousSliceDuration) {
-			return report(MaintenanceIncrementalReport{StopReason: "time_budget"})
+	total := 0
+	for round := 1; ; round++ {
+		roundEnd := time.Now().Add(incrementalRunLimit)
+		if hasWindowEnd && windowEnd.Before(roundEnd) {
+			roundEnd = windowEnd
 		}
-		started := time.Now()
-		var batch MaintenanceIncrementalBatch
-		e := runSlice(&batch)
-		previousSliceDuration = time.Since(started)
-		batch.ElapsedMS = previousSliceDuration.Milliseconds()
-		if e != nil {
-			return &IncrementalBatchStop{Batch: batch, cause: e}
+		stopReason := "batch_limit"
+		for slice := int64(0); slice < slices; slice++ {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			reached, err := targetReached(ctx)
+			if err != nil {
+				return err
+			}
+			if reached {
+				return report(MaintenanceIncrementalReport{StopReason: "target_reached"})
+			}
+			// Leave enough time for the next index pass. A new round carries the measured pace forward.
+			if (continuous || slice > 0) && time.Until(roundEnd) < max(incrementalMinimumSliceTime, previousSliceDuration) {
+				stopReason = "time_budget"
+				break
+			}
+			started := time.Now()
+			batch := MaintenanceIncrementalBatch{}
+			if continuous {
+				batch.Round = round
+			}
+			work, cancel := context.WithDeadline(ctx, roundEnd)
+			err = runSlice(work, &batch)
+			cancel()
+			previousSliceDuration = time.Since(started)
+			batch.ElapsedMS = previousSliceDuration.Milliseconds()
+			if err != nil {
+				return &IncrementalBatchStop{Batch: batch, cause: err}
+			}
+			if err = report(MaintenanceIncrementalReport{Batch: &batch}); err != nil {
+				return err
+			}
+			total++
+			if total == incrementalSlicesPerPlan {
+				return report(MaintenanceIncrementalReport{StopReason: "batch_limit"})
+			}
 		}
-		pages = growIncrementalWindow(pages, pageLimit, batch)
-		if e = report(MaintenanceIncrementalReport{Batch: &batch}); e != nil {
-			return e
+		if !continuous || (hasWindowEnd && time.Until(windowEnd) < max(incrementalMinimumSliceTime, previousSliceDuration)) {
+			if continuous {
+				stopReason = "time_budget"
+			}
+			return report(MaintenanceIncrementalReport{StopReason: stopReason})
 		}
 	}
-	return report(MaintenanceIncrementalReport{StopReason: "batch_limit"})
 }
 
 func incrementalMeasure(ctx context.Context, c *sql.Conn, name string, table *MaintenanceTable) error {

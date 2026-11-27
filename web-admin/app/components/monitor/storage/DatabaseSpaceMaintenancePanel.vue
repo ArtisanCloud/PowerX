@@ -23,6 +23,14 @@
       </fieldset>
       <UFormField class="mt-5" :label="t('storageGov.dbMaintenance.mode')"><USelect v-model="mode" :items="modes" value-key="value" class="w-full sm:w-80" :disabled="busy || !!pending || intentDamaged" data-testid="maintenance-mode" /></UFormField>
       <p class="mt-2 text-sm text-muted">{{ t('storageGov.dbMaintenance.modeHints.' + mode) }}</p>
+      <div v-if="incremental" class="mt-4 grid max-w-2xl gap-4 sm:grid-cols-2">
+        <UFormField :label="t('storageGov.dbMaintenance.maintenanceWindow')">
+          <USelect v-model="windowMinutes" :items="windows" :disabled="planDisabled" class="w-full" data-testid="maintenance-window" />
+        </UFormField>
+        <UFormField :label="t('storageGov.dbMaintenance.targetSize')" :error="invalidTarget ? t('storageGov.dbMaintenance.invalidTargetSize') : undefined">
+          <UInput v-model="targetGiB" type="number" min="1" :max="2 ** 20" step="1" :disabled="planDisabled" class="w-full" data-testid="maintenance-target" />
+        </UFormField>
+      </div>
       <p v-if="modeProblem" role="status" class="mt-3 text-sm text-warning">{{ problemText(modeProblem) }}</p>
       <div class="mt-5 flex flex-wrap items-center gap-3"><UButton :disabled="!canPreview" :loading="busy" data-testid="maintenance-preview" @click="check">{{ t('storageGov.dbMaintenance.check') }}</UButton><p class="text-xs text-muted">{{ t('storageGov.dbMaintenance.checkHint') }}</p></div>
     </UCard>
@@ -31,6 +39,10 @@
       <template #body><div v-if="preview" class="space-y-4" data-testid="maintenance-preview-detail">
         <p class="font-medium">{{ t('storageGov.dbMaintenance.modes.' + preview.mode) }}</p><ul class="space-y-2"><li v-for="id in preview.tables" :key="id">{{ tableLabel(id) }}</li></ul>
         <dl class="grid grid-cols-2 gap-3 text-sm"><dt>{{ t('storageGov.dbMaintenance.workSpace') }}</dt><dd class="tabular-nums">{{ bytes(preview.peak_bytes) }}</dd><dt>{{ t('storageGov.dbMaintenance.expires') }}</dt><dd>{{ new Date(preview.expires_at!).toLocaleTimeString() }}</dd></dl>
+        <dl v-if="preview.window_minutes" class="grid grid-cols-2 gap-3 text-sm">
+          <dt>{{ t('storageGov.dbMaintenance.maintenanceWindow') }}</dt><dd>{{ t('storageGov.dbMaintenance.durationMinutes', { count: preview.window_minutes }) }}</dd>
+          <template v-if="preview.target_database_bytes"><dt>{{ t('storageGov.dbMaintenance.targetSize') }}</dt><dd>{{ bytes(preview.target_database_bytes) }}</dd></template>
+        </dl>
         <UAlert v-if="preview.mode !== 'reuse'" color="warning" :title="t('storageGov.dbMaintenance.' + (preview.mode === 'incremental' ? 'incrementalLockTitle' : 'lockTitle'))" :description="t('storageGov.dbMaintenance.' + (preview.mode === 'incremental' ? 'incrementalLockHint' : 'lockHint'))" />
         <UCheckbox v-model="confirmed" :disabled="busy || !!pending" :label="t('storageGov.dbMaintenance.confirm')" data-testid="maintenance-confirm" />
         <UCheckbox v-if="preview.mode !== 'reuse'" v-model="exclusiveConfirmed" :disabled="busy || !!pending" :label="t('storageGov.dbMaintenance.confirmLock')" data-testid="maintenance-confirm-lock" />
@@ -73,6 +85,14 @@ const history = computed(() => Object.values(runs.value).filter(x => !['preview'
 const notificationTable = 'capability-event-publications';
 const incremental = computed(() => mode.value === 'incremental');
 const incrementalTable = ref<MaintenanceTableID>(notificationTable);
+const windowMinutes = ref(60);
+const targetGiB = ref<string | number>('');
+const windows = computed(() => [12, 60, 240, 480].map(value => ({
+  value, label: t('storageGov.dbMaintenance.durationMinutes', { count: value }),
+})));
+const invalidTarget = computed(() => targetGiB.value !== '' &&
+  (!Number.isInteger(Number(targetGiB.value)) || Number(targetGiB.value) < 1 || Number(targetGiB.value) > 2 ** 20));
+const planDisabled = computed(() => busy.value || !!pending.value || intentDamaged.value);
 const availableTables = computed(() => (status.value?.snapshot?.tables || []).filter(row =>
   !incremental.value || row.id === notificationTable || row.incremental_problem !== undefined,
 ));
@@ -94,7 +114,7 @@ const modeProblem = computed(() => {
   }
   return snapshot.rewrite_safe ? '' : 'DATABASE_MAINTENANCE_WAL_PROTECTED';
 });
-const canPreview = computed(() => !!status.value?.ready && selectedForMode.value.length > 0 && !busy.value && !pending.value && !intentDamaged.value && !status.value.active && !modeProblem.value);
+const canPreview = computed(() => !!status.value?.ready && selectedForMode.value.length > 0 && !busy.value && !pending.value && !intentDamaged.value && !status.value.active && !modeProblem.value && (!incremental.value || !invalidTarget.value));
 function identity() { const s = readAuthSession(); if (!s || s.status !== 'active') throw new Error('AUTH_SESSION_CHANGED'); return { sessionId: s.sessionId, tenantUuid: s.tenantUuid || '' }; }
 function sessionChanged() {
   const next = readAuthSession();
@@ -131,7 +151,13 @@ async function load() {
 function action() { actionController?.abort(); actionController = new AbortController(); busy.value = true; error.value = ''; return actionController.signal; }
 async function check() {
   if (!canPreview.value) return; const signal = action();
-  try { const value = await api.preview(mode.value, [...selectedForMode.value], signal); if (disposed || signal.aborted) return;
+  try {
+    const plan = incremental.value ? {
+      window_minutes: windowMinutes.value,
+      ...(targetGiB.value === '' ? {} : { target_database_bytes: Number(targetGiB.value) * 2 ** 30 }),
+    } : undefined;
+    const value = await api.preview(mode.value, [...selectedForMode.value], signal, plan);
+    if (disposed || signal.aborted) return;
     preview.value = value; confirmed.value = false; exclusiveConfirmed.value = false; expired.value = Date.parse(value.expires_at!) <= Date.now(); previewOpen.value = true;
     clearTimeout(expiryTimer); expiryTimer = setTimeout(() => { expired.value = true; }, Math.max(0, Date.parse(value.expires_at!) - Date.now()));
   } catch (e) { if (!disposed && !signal.aborted) error.value = problemText(e); }

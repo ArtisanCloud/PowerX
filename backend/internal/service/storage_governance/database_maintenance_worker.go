@@ -192,7 +192,15 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 	if e != nil {
 		return e
 	}
-	timed, stopTimeout := context.WithTimeout(ctx, 32*time.Minute)
+	deadline := time.Now().Add(32 * time.Minute)
+	reservationTTL := 35 * time.Minute
+	var plan repo.MaintenanceIncrementalPlan
+	if v.WindowEndsAt != nil {
+		deadline = *v.WindowEndsAt
+		reservationTTL = time.Duration(v.WindowMinutes)*time.Minute + 3*time.Minute
+		plan = repo.MaintenanceIncrementalPlan{Until: deadline, TargetDatabaseBytes: v.TargetDatabaseBytes}
+	}
+	timed, stopTimeout := context.WithDeadline(ctx, deadline)
 	defer stopTimeout()
 	run, stopRun := context.WithCancelCause(timed)
 	heartbeatDone := make(chan struct{})
@@ -264,6 +272,9 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 		}
 		return saveError
 	}
+	if v.WindowEndsAt != nil && !time.Now().Before(*v.WindowEndsAt) {
+		return finish(controlError(409, "DATABASE_MAINTENANCE_WINDOW_EXPIRED"))
+	}
 	if e = s.maintenance.backend.RootActive(run, v.Actor); e != nil {
 		problem = "DATABASE_MAINTENANCE_ROOT_REVOKED"
 		return finish(e)
@@ -285,7 +296,7 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 	if peak > v.PeakBytes {
 		return finish(controlError(409, "DATABASE_MAINTENANCE_PREVIEW_STALE"))
 	}
-	lease, e = s.opts.Budget.ReserveReclamation(run, maintenanceOperation(v.Mode), v.PeakBytes, 35*time.Minute)
+	lease, e = s.opts.Budget.ReserveReclamation(run, maintenanceOperation(v.Mode), v.PeakBytes, reservationTTL)
 	if e != nil {
 		problem = "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT"
 		return finish(e)
@@ -382,7 +393,7 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 			return nil
 		})
 		return e
-	})
+	}, plan)
 	close(done)
 	<-monitorDone
 	if e == nil {

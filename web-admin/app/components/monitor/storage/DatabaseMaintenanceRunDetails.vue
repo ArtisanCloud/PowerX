@@ -6,6 +6,9 @@
       <UButton v-if="run.state === 'unconfirmed'" color="warning" :disabled="busy" data-testid="maintenance-review-run" @click="$emit('review', run)">{{ t('storageGov.dbMaintenance.review') }}</UButton>
     </div>
     <UAlert v-if="run.state === 'unconfirmed'" color="warning" :title="t('storageGov.dbMaintenance.unknownResult')" :description="t('storageGov.dbMaintenance.unknownHint')" />
+    <p v-if="run.window_ends_at && ['queued', 'running'].includes(run.state)" class="text-xs text-muted">
+      {{ t('storageGov.dbMaintenance.windowEndsAt', { time: new Date(run.window_ends_at).toLocaleTimeString() }) }}
+    </p>
     <p v-if="run.problem" role="alert" class="text-sm text-warning">{{ problemText(run.problem) }}</p>
     <p v-if="run.wal_stop" class="text-sm text-muted">
       {{ t('storageGov.dbMaintenance.walStop.detail', {
@@ -30,6 +33,7 @@
           <summary class="cursor-pointer">{{ t('storageGov.dbMaintenance.batchDetails.title') }}</summary>
           <ol class="mt-2 max-h-64 space-y-2 overflow-y-auto text-muted">
             <li v-for="(batch, index) in step.incremental_batches" :key="index" class="flex flex-wrap gap-x-3 gap-y-1 border-t border-default pt-2 tabular-nums">
+              <span v-if="batch.round">{{ t('storageGov.dbMaintenance.roundNumber', { number: batch.round }) }}</span>
               <span>{{ t('storageGov.dbMaintenance.batchDetails.batch', { number: n(index + 1), seconds: n(batch.elapsed_ms / 1000, { maximumFractionDigits: 2 }) }) }}</span>
               <span v-if="batch.vacuum_attempts > 1">{{ t('storageGov.dbMaintenance.batchDetails.retries', { count: n(batch.vacuum_attempts - 1) }) }}</span>
               <span v-if="batch.truncate_lock_waits">{{ t('storageGov.dbMaintenance.batchDetails.lockWaits', { count: n(batch.truncate_lock_waits) }) }}</span>

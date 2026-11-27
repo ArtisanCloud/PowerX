@@ -106,6 +106,11 @@ func decodeMaintenance(row *m.CleanupRun, scope string) (DatabaseMaintenanceRun,
 	if row == nil || json.Unmarshal(row.Document, &out) != nil || out.ID != row.RunID || out.Version != row.Version || out.State != row.State || out.Actor != row.ActorID || out.ScopeID != scope || !validTargetUUID(out.ID) || !repo.ValidMaintenanceRequest(out.Mode, out.Tables) || out.Version < 1 || out.Before.Fingerprint == "" || out.PeakBytes < 0 {
 		return out, ErrStateUnavailable
 	}
+	if !validMaintenanceWindow(out.Mode, out.WindowMinutes, out.TargetDatabaseBytes) ||
+		(out.WindowEndsAt != nil && (out.WindowMinutes == 0 || !out.WindowEndsAt.Equal(out.At.Add(time.Duration(out.WindowMinutes)*time.Minute)))) ||
+		(out.WindowMinutes > 0 && out.State != "preview" && out.State != "consumed" && out.WindowEndsAt == nil) {
+		return out, ErrStateUnavailable
+	}
 	if out.Session != nil && (out.Session.PID <= 0 || out.Session.StartedAt.IsZero() || out.Session.Application != "px.dbmaint."+out.ID) {
 		return out, ErrStateUnavailable
 	}
@@ -316,6 +321,9 @@ func (s *Service) PreviewDatabaseMaintenance(ctx context.Context, in DatabaseMai
 	if !auth.IsPlatformRootSession(ctx) {
 		return out, ErrRootRequired
 	}
+	if !validMaintenanceWindow(in.Mode, in.WindowMinutes, in.TargetDatabaseBytes) {
+		return out, controlError(400, "DATABASE_MAINTENANCE_INPUT_INVALID")
+	}
 	if e := s.maintenanceReady(ctx); e != nil {
 		return out, e
 	}
@@ -348,7 +356,8 @@ func (s *Service) PreviewDatabaseMaintenance(ctx context.Context, in DatabaseMai
 	sort.Strings(ids)
 	now := s.opts.Now().UTC()
 	expiry := now.Add(5 * time.Minute)
-	out = DatabaseMaintenanceRun{ID: uuid.NewString(), Version: 1, ScopeID: s.opts.Control.opts.Scope.ID(), State: "preview", Mode: in.Mode, Actor: rootActor(ctx), At: now, UpdatedAt: now, ExpiresAt: &expiry, Tables: ids, Before: snapshot, PeakBytes: peak, Steps: []DatabaseMaintenanceStep{}}
+	out = DatabaseMaintenanceRun{ID: uuid.NewString(), Version: 1, ScopeID: s.opts.Control.opts.Scope.ID(), State: "preview", Mode: in.Mode, Actor: rootActor(ctx), At: now, UpdatedAt: now, ExpiresAt: &expiry, Tables: ids, Before: snapshot, PeakBytes: peak, Steps: []DatabaseMaintenanceStep{},
+		WindowMinutes: in.WindowMinutes, TargetDatabaseBytes: in.TargetDatabaseBytes}
 	e = s.maintenanceLedger().Create(run, s.opts.DB, maintenanceRow(out))
 	return out, maintenanceError(e)
 }
@@ -426,6 +435,10 @@ func (s *Service) StartDatabaseMaintenanceRequest(ctx context.Context, in Databa
 				out.ExpiresAt = nil
 				out.At = now
 				out.UpdatedAt = now
+				if out.WindowMinutes > 0 {
+					end := now.Add(time.Duration(out.WindowMinutes) * time.Minute)
+					out.WindowEndsAt = &end
+				}
 				preview.State = "consumed"
 				preview.Version++
 				preview.UpdatedAt = now
@@ -563,6 +576,8 @@ func (s *Service) cancelUnregisteredMaintenance(ctx context.Context, id, preview
 		out.PreviewID = previewID
 		out.State = "cancelled"
 		out.CancelledBy = rootActor(ctx)
+		out.WindowMinutes = 0
+		out.TargetDatabaseBytes = 0
 		out.At = now
 		out.UpdatedAt = now
 		out.ExpiresAt = nil

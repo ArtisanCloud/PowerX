@@ -66,8 +66,15 @@ type MaintenanceIncrementalProgress struct {
 	HeapReclaimedBytes int64 `json:"heap_reclaimed_bytes"`
 }
 
+// MaintenanceIncrementalPlan binds a continuous run to the approved window and optional database size target.
+type MaintenanceIncrementalPlan struct {
+	Until               time.Time
+	TargetDatabaseBytes int64
+}
+
 // MaintenanceIncrementalBatch records one attempted slice, including partial progress.
 type MaintenanceIncrementalBatch struct {
+	Round              int    `json:"round,omitempty"`
 	TailPages          int64  `json:"tail_pages,omitempty"`
 	ElapsedMS          int64  `json:"elapsed_ms"`
 	VacuumAttempts     int    `json:"vacuum_attempts"`
@@ -226,7 +233,14 @@ func SameMaintenanceTarget(expected, actual MaintenanceSnapshot, ids []string) b
 }
 
 // Execute 在单一固定连接上执行自动提交的维护语句；不把 VACUUM 放入事务块。
-func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode string, expected MaintenanceSnapshot, ids []string, peakBytes int64, before func(string, MaintenanceSession) error, after func(string) error, guard func(context.Context) error, progress func(MaintenanceIncrementalReport) error) error {
+func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode string, expected MaintenanceSnapshot, ids []string, peakBytes int64, before func(string, MaintenanceSession) error, after func(string) error, guard func(context.Context) error, progress func(MaintenanceIncrementalReport) error, plans ...MaintenanceIncrementalPlan) error {
+	var plan MaintenanceIncrementalPlan
+	if len(plans) > 1 || len(plans) == 1 && mode != IncrementalMaintenanceMode && plans[0] != (MaintenanceIncrementalPlan{}) {
+		return ErrMaintenanceTarget
+	}
+	if len(plans) == 1 {
+		plan = plans[0]
+	}
 	if !ValidMaintenanceRequest(mode, ids) || mode == IncrementalMaintenanceMode && (peakBytes < IncrementalMaintenanceMinimumPeakBytes || guard == nil || progress == nil) {
 		return ErrMaintenanceTarget
 	}
@@ -323,7 +337,7 @@ func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode
 		}
 		switch mode {
 		case IncrementalMaintenanceMode:
-			e = r.executeIncremental(ctx, c, actual, id, peakBytes, session.PID, guard, progress)
+			e = r.executeIncremental(ctx, c, actual, id, peakBytes, session.PID, guard, progress, plan)
 		case "compact":
 			_, e = c.ExecContext(ctx, "VACUUM (FULL, ANALYZE) "+pgx.Identifier{r.schema, maintenanceTables[id]}.Sanitize())
 		default:
