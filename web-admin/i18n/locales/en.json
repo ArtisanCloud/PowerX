@@ -1741,9 +1741,10 @@
       "invalidTargetSize": "Enter a whole number from 1 to 1,048,576.",
       "windowEndsAt": "Maintenance window ends at {time}",
       "roundNumber": "Round {number}",
-      "incrementalLockHint": "Confirm once to continue automatically within the selected window. Each round lasts at most 12 minutes and each batch handles up to 16,384 tail pages. Maintenance stops at the target or when a safeguard is triggered.",
+      "incrementalLockHint": "Confirm once to continue within the selected window. Each round lasts at most 12 minutes and each batch covers up to 16,384 tail pages. Maintenance waits on temporary disk or WAL pressure and stops at the target or at the end of the window.",
       "incrementalProgress": "Slices completed: {count}. Verified heap reduction: {space} bytes.",
       "batchDetails": {
+        "deferred": "Paused by a safeguard",
         "title": "View batch results",
         "batch": "Batch {number} · {seconds}s",
         "retries": "Retried {count} times",
@@ -1766,6 +1767,11 @@
       "confirmLock": "A maintenance window is arranged; selected system tables may temporarily block reads and writes",
       "expired": "This check has expired. Close it and check again.",
       "start": "Start maintenance",
+      "confirmStart": "Confirm and start",
+      "waiting": {
+        "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT": "Waiting for disk headroom. PowerX will recheck within the maintenance window.",
+        "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET": "Waiting for WAL pressure to ease. PowerX will recheck within the maintenance window."
+      },
       "close": "Close",
       "pendingTitle": "Original request needs reconciliation",
       "pendingHint": "Keep the original request ID. Reconcile or cancel it; maintenance is never automatically repeated.",

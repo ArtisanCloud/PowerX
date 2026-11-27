@@ -70,10 +70,23 @@ type MaintenanceIncrementalProgress struct {
 type MaintenanceIncrementalPlan struct {
 	Until               time.Time
 	TargetDatabaseBytes int64
+	Resume              *MaintenanceIncrementalResume
+}
+
+// MaintenanceIncrementalResume carries verified progress and the original WAL ceiling across
+// attempts of one live task. It cannot restore an interrupted TaskBus delivery.
+type MaintenanceIncrementalResume struct {
+	initialized   bool
+	walBaseline   int64
+	tableBaseline int64
+	pages         int64
+	round         int
+	attempts      int
 }
 
 // MaintenanceIncrementalBatch records one attempted slice, including partial progress.
 type MaintenanceIncrementalBatch struct {
+	Deferred           bool   `json:"deferred,omitempty"`
 	Round              int    `json:"round,omitempty"`
 	TailPages          int64  `json:"tail_pages,omitempty"`
 	ElapsedMS          int64  `json:"elapsed_ms"`

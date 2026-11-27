@@ -15,6 +15,7 @@ import (
 type DatabaseMaintenanceBackend interface {
 	Inspect(context.Context) (repo.MaintenanceSnapshot, error)
 	CheckIncremental(context.Context, repo.MaintenanceSnapshot, string) error
+	IncrementalRecoveryReady(context.Context, *repo.IncrementalWALStop, int64) (bool, error)
 	Execute(context.Context, string, string, repo.MaintenanceSnapshot, []string, int64, func(string, repo.MaintenanceSession) error, func(string) error, func(context.Context) error, func(repo.MaintenanceIncrementalReport) error, ...repo.MaintenanceIncrementalPlan) error
 	SessionActive(context.Context, repo.MaintenanceSession, bool) (bool, error)
 	RootActive(context.Context, uint64) error
@@ -70,7 +71,13 @@ func validMaintenanceWindow(mode string, minutes int, targetBytes int64) bool {
 		targetBytes >= 0 && targetBytes <= 1<<50
 }
 
+type DatabaseMaintenanceWait struct {
+	Code string                   `json:"code"`
+	WAL  *repo.IncrementalWALStop `json:"wal,omitempty"`
+}
+
 type DatabaseMaintenanceRun struct {
+	Wait                      *DatabaseMaintenanceWait  `json:"wait,omitempty"`
 	WindowMinutes             int                       `json:"window_minutes,omitempty"`
 	WindowEndsAt              *time.Time                `json:"window_ends_at,omitempty"`
 	TargetDatabaseBytes       int64                     `json:"target_database_bytes,omitempty"`

@@ -1454,9 +1454,10 @@
       "invalidTargetSize": "1 から 1,048,576 の整数を入力してください。",
       "windowEndsAt": "メンテナンス終了時刻 {time}",
       "roundNumber": "第 {number} ラウンド",
-      "incrementalLockHint": "一度確認すると選択した時間枠内で自動継続します。各ラウンドは最長 12 分、各バッチは末尾 16,384 ページまでです。目標到達または保護条件により停止します。",
+      "incrementalLockHint": "一度確認すると選択した時間枠内で自動継続します。各ラウンドは最長 12 分、各バッチは末尾 16,384 ページまでです。一時的な空き容量不足や WAL 負荷の解消を待ち、目標到達または時間枠終了で停止します。",
       "incrementalProgress": "{count} バッチ完了。確認済みのヒープ削減量は {space} バイトです。",
       "batchDetails": {
+        "deferred": "保護により一時停止",
         "title": "各バッチの結果を表示",
         "batch": "バッチ {number} · {seconds} 秒",
         "retries": "再試行 {count} 回",
@@ -1479,6 +1480,11 @@
       "confirmLock": "A maintenance window is arranged; selected system tables may temporarily block reads and writes",
       "expired": "This check has expired. Close it and check again.",
       "start": "Start maintenance",
+      "confirmStart": "確認して開始",
+      "waiting": {
+        "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT": "空き容量の回復待ちです。メンテナンス時間枠内に自動で再確認します。",
+        "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET": "WAL 負荷の低下待ちです。メンテナンス時間枠内に自動で再確認します。"
+      },
       "close": "Close",
       "pendingTitle": "Original request needs reconciliation",
       "pendingHint": "Keep the original request ID. Reconcile or cancel it; maintenance is never automatically repeated.",

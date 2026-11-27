@@ -32,7 +32,7 @@
         </UFormField>
       </div>
       <p v-if="modeProblem" role="status" class="mt-3 text-sm text-warning">{{ problemText(modeProblem) }}</p>
-      <div class="mt-5 flex flex-wrap items-center gap-3"><UButton :disabled="!canPreview" :loading="busy" data-testid="maintenance-preview" @click="check">{{ t('storageGov.dbMaintenance.check') }}</UButton><p class="text-xs text-muted">{{ t('storageGov.dbMaintenance.checkHint') }}</p></div>
+      <div class="mt-5 flex flex-wrap items-center gap-3"><UButton :disabled="!canPreview" :loading="busy" data-testid="maintenance-preview" @click="check">{{ t('storageGov.dbMaintenance.start') }}</UButton></div>
     </UCard>
 
     <UModal v-model:open="previewOpen" :title="t('storageGov.dbMaintenance.previewTitle')" :description="t('storageGov.dbMaintenance.previewHint')" :ui="{ content: 'max-w-3xl' }">
@@ -49,7 +49,7 @@
         <p v-if="expired" role="alert" class="text-warning">{{ t('storageGov.dbMaintenance.expired') }}</p><p v-if="error" role="alert" class="text-error">{{ error }}</p>
         <div v-if="pending" class="flex flex-wrap gap-2"><UButton :disabled="busy" @click="reconcile">{{ t('storageGov.dbMaintenance.reconcile') }}</UButton><UButton :disabled="busy || pending.scopeId !== status?.scope_id" color="neutral" @click="cancelPending">{{ t('storageGov.dbMaintenance.cancelRequest') }}</UButton></div>
       </div></template>
-      <template #footer><UButton :disabled="!preview || !confirmed || expired || busy || !!pending || intentDamaged || preview.mode !== 'reuse' && !exclusiveConfirmed" :loading="busy" data-testid="maintenance-start" @click="start">{{ t('storageGov.dbMaintenance.start') }}</UButton><UButton color="neutral" variant="ghost" @click="previewOpen = false">{{ t('storageGov.dbMaintenance.close') }}</UButton></template>
+      <template #footer><UButton :disabled="!preview || !confirmed || expired || busy || !!pending || intentDamaged || preview.mode !== 'reuse' && !exclusiveConfirmed" :loading="busy" data-testid="maintenance-start" @click="start">{{ t('storageGov.dbMaintenance.confirmStart') }}</UButton><UButton color="neutral" variant="ghost" @click="previewOpen = false">{{ t('storageGov.dbMaintenance.close') }}</UButton></template>
     </UModal>
     <UModal v-model:open="recordsOpen" :title="t('storageGov.dbMaintenance.records')" :description="t('storageGov.dbMaintenance.recordsHint')" :ui="{ content: 'max-w-3xl' }">
       <template #body>

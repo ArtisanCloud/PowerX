@@ -1454,9 +1454,10 @@
       "invalidTargetSize": "1에서 1,048,576 사이의 정수를 입력하세요.",
       "windowEndsAt": "유지 관리 종료 시각 {time}",
       "roundNumber": "{number}차",
-      "incrementalLockHint": "한 번 확인하면 선택한 시간 내에 자동으로 계속합니다. 회차당 최대 12분, 배치당 테이블 끝부분은 최대 16,384페이지입니다. 목표에 도달하거나 보호 조건이 발동하면 중지합니다.",
+      "incrementalLockHint": "한 번 확인하면 선택한 시간 내에 자동으로 계속합니다. 회차당 최대 12분, 배치당 테이블 끝부분은 최대 16,384페이지입니다. 디스크 또는 WAL 여유가 생길 때까지 대기하고, 목표에 도달하거나 시간이 끝나면 중지합니다.",
       "incrementalProgress": "{count}개 배치 완료. 확인된 힙 감소량 {space}바이트.",
       "batchDetails": {
+        "deferred": "보호 조건으로 일시 중지",
         "title": "배치별 결과 보기",
         "batch": "배치 {number} · {seconds}초",
         "retries": "재시도 {count}회",
@@ -1479,6 +1480,11 @@
       "confirmLock": "A maintenance window is arranged; selected system tables may temporarily block reads and writes",
       "expired": "This check has expired. Close it and check again.",
       "start": "Start maintenance",
+      "confirmStart": "확인 후 시작",
+      "waiting": {
+        "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT": "디스크 여유 공간이 확보되면 유지 관리 시간 내에 자동으로 다시 확인합니다.",
+        "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET": "WAL 부하가 낮아지면 유지 관리 시간 내에 자동으로 다시 확인합니다."
+      },
       "close": "Close",
       "pendingTitle": "Original request needs reconciliation",
       "pendingHint": "Keep the original request ID. Reconcile or cancel it; maintenance is never automatically repeated.",

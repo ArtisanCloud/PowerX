@@ -111,6 +111,12 @@ func decodeMaintenance(row *m.CleanupRun, scope string) (DatabaseMaintenanceRun,
 		(out.WindowMinutes > 0 && out.State != "preview" && out.State != "consumed" && out.WindowEndsAt == nil) {
 		return out, ErrStateUnavailable
 	}
+	if wait := out.Wait; wait != nil &&
+		(out.WindowEndsAt == nil || out.Session != nil || out.State != "running" && out.State != "cancel_requested" ||
+			wait.Code != maintenanceSpaceInsufficient && wait.Code != "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET" ||
+			(wait.Code == "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET") != (wait.WAL != nil)) {
+		return out, ErrStateUnavailable
+	}
 	if out.Session != nil && (out.Session.PID <= 0 || out.Session.StartedAt.IsZero() || out.Session.Application != "px.dbmaint."+out.ID) {
 		return out, ErrStateUnavailable
 	}

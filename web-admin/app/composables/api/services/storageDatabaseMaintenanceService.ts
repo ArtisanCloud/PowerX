@@ -17,6 +17,7 @@ const incrementalStopPhases = ['checks', 'measurement', 'eligibility', 'relocati
 const incrementalStopReasons = ['time_budget', 'batch_limit', 'target_reached'] as const;
 export interface MaintenanceIncrementalBatch {
   round?: number;
+  deferred?: true;
   elapsed_ms: number;
   vacuum_attempts: number;
   truncate_lock_waits?: number;
@@ -42,6 +43,7 @@ export interface DatabaseMaintenanceRun {
     observed_bytes: number;
     limit_bytes: number;
   };
+  wait?: { code: 'DATABASE_MAINTENANCE_SPACE_INSUFFICIENT' | 'DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET' };
   filesystem_available_before?: number; filesystem_available_after?: number;
 }
 export interface DatabaseMaintenanceStatus {
@@ -70,8 +72,10 @@ function validIncrementalBatches(step: DatabaseMaintenanceRun['steps'][number], 
       if (!size(batch.round) || batch.round < round || batch.round > round + (index > 0 ? 1 : 0)) return false;
       round = batch.round;
     } else if (batch.round !== undefined) return false;
+    if (batch.deferred !== undefined && (!hasWindow || batch.deferred !== true || !batch.stop_phase)) return false;
     if (batch.stop_phase !== undefined) {
-      if (!incrementalStopPhases.includes(batch.stop_phase) || index !== batches.length - 1 || step.incremental_stop_reason !== undefined) return false;
+      if (!incrementalStopPhases.includes(batch.stop_phase) ||
+          !batch.deferred && (index !== batches.length - 1 || step.incremental_stop_reason !== undefined)) return false;
     } else if (!batch.vacuum_attempts || !batch.heap_reclaimed_bytes || batch.table_change_bytes === undefined || batch.table_change_bytes >= 0) return false;
     if (batch.heap_reclaimed_bytes > 0) {
       slices++;
@@ -114,6 +118,8 @@ export function decodeDatabaseMaintenanceRun(raw: unknown, expectedID?: string):
     if (['preview', 'consumed'].includes(d.state) ? d.window_ends_at !== undefined :
       !time(d.window_ends_at) || Date.parse(d.window_ends_at) !== Date.parse(d.at) + d.window_minutes * 60_000) invalid();
   } else if (d.window_ends_at !== undefined || d.target_database_bytes !== undefined) invalid();
+  if (d.wait !== undefined && (!d.wait || !d.window_ends_at || !['running', 'cancel_requested'].includes(d.state) ||
+      !['DATABASE_MAINTENANCE_SPACE_INSUFFICIENT', 'DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET'].includes(d.wait.code))) invalid();
   if (d.wal_stop !== undefined) {
     const stop = d.wal_stop;
     if (d.mode !== 'incremental' || d.problem !== 'DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET' ||

@@ -9,6 +9,9 @@
     <p v-if="run.window_ends_at && ['queued', 'running'].includes(run.state)" class="text-xs text-muted">
       {{ t('storageGov.dbMaintenance.windowEndsAt', { time: new Date(run.window_ends_at).toLocaleTimeString() }) }}
     </p>
+    <p v-if="run.wait" role="status" class="text-sm text-warning">
+      {{ t('storageGov.dbMaintenance.waiting.' + run.wait.code) }}
+    </p>
     <p v-if="run.problem" role="alert" class="text-sm text-warning">{{ problemText(run.problem) }}</p>
     <p v-if="run.wal_stop" class="text-sm text-muted">
       {{ t('storageGov.dbMaintenance.walStop.detail', {
@@ -38,7 +41,8 @@
               <span v-if="batch.vacuum_attempts > 1">{{ t('storageGov.dbMaintenance.batchDetails.retries', { count: n(batch.vacuum_attempts - 1) }) }}</span>
               <span v-if="batch.truncate_lock_waits">{{ t('storageGov.dbMaintenance.batchDetails.lockWaits', { count: n(batch.truncate_lock_waits) }) }}</span>
               <span v-if="batch.table_change_bytes !== undefined">{{ t('storageGov.dbMaintenance.batchDetails.change', { bytes: signedBytes(batch.table_change_bytes) }) }}</span>
-              <span v-if="batch.stop_phase" class="text-warning">{{ t('storageGov.dbMaintenance.batchDetails.' + batch.stop_phase) }}</span>
+              <span v-if="batch.deferred" class="text-warning">{{ t('storageGov.dbMaintenance.batchDetails.deferred') }}</span>
+              <span v-else-if="batch.stop_phase" class="text-warning">{{ t('storageGov.dbMaintenance.batchDetails.' + batch.stop_phase) }}</span>
             </li>
           </ol>
         </details>

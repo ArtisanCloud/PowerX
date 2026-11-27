@@ -54,6 +54,10 @@ func (f *maintenanceFixtureBackend) SessionActive(_ context.Context, _ repo.Main
 func (f *maintenanceFixtureBackend) CheckIncremental(context.Context, repo.MaintenanceSnapshot, string) error {
 	return nil
 }
+func (f *maintenanceFixtureBackend) IncrementalRecoveryReady(context.Context, *repo.IncrementalWALStop, int64) (bool, error) {
+	return true, nil
+}
+
 func (f *maintenanceFixtureBackend) Execute(ctx context.Context, id, mode string, expected repo.MaintenanceSnapshot, ids []string, peakBytes int64, before func(string, repo.MaintenanceSession) error, after func(string) error, _ func(context.Context) error, _ func(repo.MaintenanceIncrementalReport) error, _ ...repo.MaintenanceIncrementalPlan) error {
 	f.peakBytes.Store(peakBytes)
 	f.active.Store(true)
@@ -190,6 +194,57 @@ func TestDatabaseMaintenanceWALStopPersistsMeasuredLimit(t *testing.T) {
 	require.Equal(t, run.PeakBytes, backend.peakBytes.Load())
 	status, e := s.opts.Budget.Status(context.Background())
 	require.NoError(t, e)
+	require.Empty(t, status.Active)
+}
+
+func TestDatabaseMaintenanceRecoversWALWithinOneApprovedTask(t *testing.T) {
+	s, backend, bus := maintenanceFixture(t)
+	stop := &repo.IncrementalWALStop{
+		Phase: "vacuum", Metric: "wal_file_bytes", ObservedBytes: 848 << 20, LimitBytes: 848 << 20,
+	}
+	backend.onExecute = func(context.Context) error {
+		if backend.executed.Load() == 1 {
+			return stop
+		}
+		return nil
+	}
+	actor := controlRoot()
+	preview, err := s.PreviewDatabaseMaintenance(actor, DatabaseMaintenancePreview{
+		Mode:          repo.IncrementalMaintenanceMode,
+		Tables:        []string{repo.IncrementalMaintenanceTable},
+		WindowMinutes: 12,
+	})
+	require.NoError(t, err)
+	request := DatabaseMaintenanceRequest{RequestID: uuid.NewString(), PreviewID: preview.ID, Confirm: true, ExclusiveLockConfirmed: true}
+	run, err := s.StartDatabaseMaintenanceRequest(actor, request)
+	require.NoError(t, err)
+	ctx, stopTest := context.WithTimeout(context.Background(), 40*time.Second)
+	defer stopTest()
+	done := make(chan error, 1)
+	go func() {
+		done <- s.applyDatabaseMaintenance(ctx, maintenanceDelivery(s, run))
+	}()
+	require.Eventually(t, func() bool {
+		waiting, err := s.DatabaseMaintenanceRun(actor, run.ID)
+		return err == nil && waiting.State == "running" && waiting.Wait != nil &&
+			waiting.Wait.Code == "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET" &&
+			waiting.Wait.WAL != nil && *waiting.Wait.WAL == *stop && waiting.Session == nil
+	}, 3*time.Second, 20*time.Millisecond)
+	require.False(t, backend.active.Load(), "confirmed SQL session must be gone while waiting")
+	require.EqualValues(t, 1, backend.executed.Load())
+	require.Zero(t, bus.completed.Load())
+	require.NoError(t, <-done)
+	final, err := s.DatabaseMaintenanceRun(actor, run.ID)
+	require.NoError(t, err)
+	require.Equal(t, "completed", final.State)
+	require.Nil(t, final.Wait)
+	require.Len(t, final.Steps, 1)
+	require.Equal(t, "completed", final.Steps[0].State)
+	require.EqualValues(t, 2, backend.executed.Load())
+	require.EqualValues(t, 1, bus.completed.Load())
+	require.EqualValues(t, 1, bus.acked.Load())
+	status, err := s.opts.Budget.Status(context.Background())
+	require.NoError(t, err)
 	require.Empty(t, status.Active)
 }
 

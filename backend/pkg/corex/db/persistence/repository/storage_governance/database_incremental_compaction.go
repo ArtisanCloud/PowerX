@@ -361,11 +361,19 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 	if e = incrementalMeasure(ctx, c, name, &table); e != nil {
 		return e
 	}
-	initialTotal := table.TotalBytes
+	resume := plan.Resume
+	if resume == nil {
+		resume = &MaintenanceIncrementalResume{}
+	}
+	if !resume.initialized {
+		resume.initialized = true
+		resume.walBaseline = initialWAL.fileBytes
+		resume.tableBaseline = table.TotalBytes
+		resume.pages = incrementalPages
+	}
 	// Small relations need fewer repeated index passes.
 	slices := min(incrementalSlicesPerRun, max(4, table.HeapBytes/(32<<20)))
 	pageLimit := incrementalPageLimit(table.HeapBytes, peakBytes)
-	pages := int64(incrementalPages)
 	runSlice := func(ctx context.Context, batch *MaintenanceIncrementalBatch) error {
 		batch.StopPhase = "checks"
 		if e := check(ctx); e != nil {
@@ -377,10 +385,10 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 		}
 		// Only verified net shrink can offset WAL growth. Recalculate using the
 		// current relation size so concurrent growth also consumes that credit.
-		walLimit = initialWAL.fileBytes + walGrowthBudget + max(0, initialTotal-table.TotalBytes)
+		walLimit = resume.walBaseline + walGrowthBudget + max(0, resume.tableBaseline-table.TotalBytes)
 		end := table.HeapBytes / incrementalBlockBytes
 		batch.StopPhase = "eligibility"
-		start, e := incrementalTailStart(ctx, c, name, fsm, table, max(1, end-pages), end)
+		start, e := incrementalTailStart(ctx, c, name, fsm, table, max(1, end-min(resume.pages, pageLimit)), end)
 		if e != nil {
 			return e
 		}
@@ -422,23 +430,57 @@ WHERE to_regclass($2)=$1::oid`, table.OID, name).Scan(&table.filenode); e != nil
 	return runIncrementalRounds(ctx, slices, !plan.Until.IsZero(), targetReached,
 		runSlice, func(result MaintenanceIncrementalReport) error {
 			if result.Batch != nil {
-				pages = growIncrementalWindow(pages, pageLimit, *result.Batch)
+				resume.pages = growIncrementalWindow(min(resume.pages, pageLimit), pageLimit, *result.Batch)
 			}
 			return report(result)
-		})
+		}, resume)
+}
+
+// IncrementalRecoveryReady verifies that WAL pressure eased without moving the approved ceiling.
+func (r *DatabaseMaintenanceRepository) IncrementalRecoveryReady(ctx context.Context, stop *IncrementalWALStop, peakBytes int64) (bool, error) {
+	pool, err := r.pool()
+	if err != nil {
+		return false, err
+	}
+	if stop.Metric == "wal_file_bytes" {
+		files, err := incrementalWALFiles(ctx, pool)
+		margin := min(int64(64<<20), (peakBytes-IncrementalMaintenanceNonWALBytes)/2)
+		return files <= stop.LimitBytes-margin, err
+	}
+	if stop.Metric != "wal_quiet_interval_bytes" {
+		return false, ErrMaintenanceUnavailable
+	}
+	first, err := sampleIncrementalWAL(ctx, pool, "0/0")
+	if err != nil {
+		return false, err
+	}
+	timer := time.NewTimer(2 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case <-timer.C:
+	}
+	next, err := sampleIncrementalWAL(ctx, pool, first.lsn)
+	return next.trafficBytes < stop.LimitBytes, err
 }
 
 func runIncrementalRounds(ctx context.Context, slices int64, continuous bool, targetReached func(context.Context) (bool, error),
-	runSlice func(context.Context, *MaintenanceIncrementalBatch) error, report func(MaintenanceIncrementalReport) error) error {
+	runSlice func(context.Context, *MaintenanceIncrementalBatch) error, report func(MaintenanceIncrementalReport) error,
+	resume ...*MaintenanceIncrementalResume) error {
+	progress := &MaintenanceIncrementalResume{}
+	if len(resume) > 0 {
+		progress = resume[0]
+	}
 	windowEnd, hasWindowEnd := ctx.Deadline()
 	var previousSliceDuration time.Duration
-	total := 0
-	for round := 1; ; round++ {
+	for {
 		roundEnd := time.Now().Add(incrementalRunLimit)
 		if hasWindowEnd && windowEnd.Before(roundEnd) {
 			roundEnd = windowEnd
 		}
 		stopReason := "batch_limit"
+		round := progress.round + 1
 		for slice := int64(0); slice < slices; slice++ {
 			if err := ctx.Err(); err != nil {
 				return err
@@ -455,6 +497,11 @@ func runIncrementalRounds(ctx context.Context, slices int64, continuous bool, ta
 				stopReason = "time_budget"
 				break
 			}
+			if progress.attempts == incrementalSlicesPerPlan {
+				return report(MaintenanceIncrementalReport{StopReason: "batch_limit"})
+			}
+			progress.round = round
+			progress.attempts++
 			started := time.Now()
 			batch := MaintenanceIncrementalBatch{}
 			if continuous {
@@ -470,10 +517,6 @@ func runIncrementalRounds(ctx context.Context, slices int64, continuous bool, ta
 			}
 			if err = report(MaintenanceIncrementalReport{Batch: &batch}); err != nil {
 				return err
-			}
-			total++
-			if total == incrementalSlicesPerPlan {
-				return report(MaintenanceIncrementalReport{StopReason: "batch_limit"})
 			}
 		}
 		if !continuous || (hasWindowEnd && time.Until(windowEnd) < max(incrementalMinimumSliceTime, previousSliceDuration)) {

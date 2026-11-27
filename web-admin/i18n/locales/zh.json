@@ -1741,9 +1741,10 @@
       "invalidTargetSize": "请输入 1 至 1,048,576 之间的整数。",
       "windowEndsAt": "维护窗口至 {time}",
       "roundNumber": "第 {number} 轮",
-      "incrementalLockHint": "一次确认后在所选窗口内自动续跑。每轮最多 12 分钟，每批最多处理 16,384 个尾部页。已达到目标或触发保护时停止。",
+      "incrementalLockHint": "一次确认后在所选窗口内自动续跑。每轮最多 12 分钟，每批最多处理 16,384 个尾部页。空间或 WAL 暂时不足时自动等待，达到目标或窗口结束时停止。",
       "incrementalProgress": "已完成 {count} 批，已验证主表文件共减少 {space} 字节",
       "batchDetails": {
+        "deferred": "因保护暂缓",
         "title": "查看每批结果",
         "batch": "第 {number} 批 · {seconds} 秒",
         "retries": "重试 {count} 次",
@@ -1766,6 +1767,11 @@
       "confirmLock": "我已安排维护窗口，允许暂时阻塞选定系统表的读写",
       "expired": "本次检查已过期，请关闭后重新检查。",
       "start": "开始维护",
+      "confirmStart": "确认并开始",
+      "waiting": {
+        "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT": "等待磁盘空间恢复，PowerX 会在维护窗口内自动重检。",
+        "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET": "等待 WAL 压力缓解，PowerX 会在维护窗口内自动重检。"
+      },
       "close": "关闭",
       "pendingTitle": "原请求结果待核对",
       "pendingHint": "保留原请求编号，先核对任务或取消原请求；不会自动重做维护。",

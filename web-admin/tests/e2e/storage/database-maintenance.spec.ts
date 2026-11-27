@@ -136,6 +136,17 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
       await expect(page.getByTestId('database-maintenance-run')).toContainText('等待执行');
     }
     const reads = f.calls.reads; await page.waitForTimeout(1600); expect(f.calls.reads).toBe(reads);
+    if (incremental) {
+      const paused = {
+        ...f.status.active!, state: 'running' as const, version: 5,
+        wait: { code: 'DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET' as const },
+      };
+      f.status.active = paused;
+      f.status.runs = [paused];
+      f.emit();
+      await expect(page.getByTestId('database-maintenance-run')).toContainText('等待 WAL 压力缓解');
+      await expect(page.getByTestId('maintenance-cancel-run')).toBeVisible();
+    }
     const partial = width === 390;
     const done = { ...maintenanceRun('completed', f.calls.starts[0].request_id), mode, tables: [table], version: 8, preview_id: f.calls.starts[0].preview_id };
     if (incremental) {
@@ -178,7 +189,7 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
       await expect(receipt).not.toContainText('正在整理');
       await expect(receipt).toContainText('清理索引与截断阶段检测到WAL 文件占用为 848 MiB，上限为 848 MiB');
     }
-    await expect.poll(() => f.calls.reads).toBe(reads + 1);
+    await expect.poll(() => f.calls.reads).toBe(reads + (incremental ? 2 : 1));
     await page.getByTestId('maintenance-history').click(); await expect(page.getByRole('dialog')).toContainText(finalLabel); await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.screenshot({ path: info.outputPath(`maintenance-completed-${width}.png`), fullPage: true });

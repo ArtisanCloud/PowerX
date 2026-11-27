@@ -103,6 +103,7 @@ func (s *Service) reconcileInterruptedMaintenance(ctx context.Context) error {
 		_, e = s.maintenanceChange(ctx, v.ID, func(x *DatabaseMaintenanceRun) error {
 			if x.State == "running" || x.State == "cancel_requested" {
 				x.State = "unconfirmed"
+				x.Wait = nil
 				x.Problem = "DATABASE_MAINTENANCE_INTERRUPTED"
 			}
 			return nil
@@ -142,6 +143,7 @@ func (s *Service) applyDatabaseMaintenance(ctx context.Context, item event_bus.S
 		}
 		if _, e = s.maintenanceDeliveryChange(ctx, item, v.ID, true, func(x *DatabaseMaintenanceRun) error {
 			x.State = "unconfirmed"
+			x.Wait = nil
 			x.Problem = "DATABASE_MAINTENANCE_INTERRUPTED"
 			return nil
 		}); e != nil {
@@ -198,7 +200,7 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 	if v.WindowEndsAt != nil {
 		deadline = *v.WindowEndsAt
 		reservationTTL = time.Duration(v.WindowMinutes)*time.Minute + 3*time.Minute
-		plan = repo.MaintenanceIncrementalPlan{Until: deadline, TargetDatabaseBytes: v.TargetDatabaseBytes}
+		plan = repo.MaintenanceIncrementalPlan{Until: deadline, TargetDatabaseBytes: v.TargetDatabaseBytes, Resume: &repo.MaintenanceIncrementalResume{}}
 	}
 	timed, stopTimeout := context.WithDeadline(ctx, deadline)
 	defer stopTimeout()
@@ -250,6 +252,7 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 				finalState = "cancelled"
 			}
 			x.State = finalState
+			x.Wait = nil
 			x.Problem = problem
 			var batchStop *repo.IncrementalBatchStop
 			if len(x.Steps) == 1 && errors.As(cause, &batchStop) {
@@ -319,83 +322,147 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 		finalState = "unconfirmed"
 		return finish(e)
 	}
-	command, cancelCommand := context.WithCancelCause(run)
-	defer cancelCommand(nil)
-	done := make(chan struct{})
-	monitorDone := make(chan struct{})
-	go func() {
-		defer close(monitorDone)
-		tick := time.NewTicker(time.Second)
-		defer tick.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-command.Done():
-				return
-			case <-tick.C:
-				check, stop := context.WithTimeout(command, 2*time.Second)
-				checkError := s.maintenanceSafety(check, v, lease.ID())
-				stop()
-				if checkError != nil {
-					cancelCommand(checkError)
+	var lastSession *repo.MaintenanceSession
+	attempt := func() (error, error) {
+		lastSession = nil
+		command, cancelCommand := context.WithCancelCause(run)
+		defer cancelCommand(nil)
+		done := make(chan struct{})
+		monitorDone := make(chan struct{})
+		go func() {
+			defer close(monitorDone)
+			tick := time.NewTicker(time.Second)
+			defer tick.Stop()
+			for {
+				select {
+				case <-done:
 					return
+				case <-command.Done():
+					return
+				case <-tick.C:
+					check, stop := context.WithTimeout(command, 2*time.Second)
+					checkError := s.maintenanceSafety(check, v, lease.ID())
+					stop()
+					if checkError != nil {
+						cancelCommand(checkError)
+						return
+					}
 				}
 			}
-		}
-	}()
-	var incrementalStopReason string
-	e = s.maintenance.backend.Execute(command, v.ID, v.Mode, v.Before, v.Tables, v.PeakBytes, func(id string, session repo.MaintenanceSession) error {
-		if e := s.maintenanceSafety(command, v, lease.ID()); e != nil {
+		}()
+		var incrementalStopReason string
+		err := s.maintenance.backend.Execute(command, v.ID, v.Mode, v.Before, v.Tables, v.PeakBytes, func(id string, session repo.MaintenanceSession) error {
+			if e := s.maintenanceSafety(command, v, lease.ID()); e != nil {
+				return e
+			}
+			_, e := s.maintenanceDeliveryChange(command, item, v.ID, false, func(x *DatabaseMaintenanceRun) error {
+				if x.State == "cancel_requested" {
+					return controlError(409, "DATABASE_MAINTENANCE_CANCELLED")
+				}
+				if x.State != "running" {
+					return repo.ErrRevisionConflict
+				}
+				x.Session = &session
+				lastSession = &session
+				x.Wait = nil
+				if len(x.Steps) == 0 || x.Mode != repo.IncrementalMaintenanceMode {
+					x.Steps = append(x.Steps, DatabaseMaintenanceStep{TableID: id, State: "running", StartedAt: s.opts.Now().UTC()})
+				}
+				return nil
+			})
 			return e
+		}, func(id string) error {
+			_, e := s.maintenanceDeliveryChange(command, item, v.ID, false, func(x *DatabaseMaintenanceRun) error {
+				for i := range x.Steps {
+					if x.Steps[i].TableID == id && x.Steps[i].State == "running" {
+						now := s.opts.Now().UTC()
+						x.Steps[i].State = "completed"
+						x.Steps[i].FinishedAt = &now
+						x.Steps[i].IncrementalStopReason = incrementalStopReason
+						return nil
+					}
+				}
+				return ErrStateUnavailable
+			})
+			return e
+		}, func(ctx context.Context) error {
+			return s.maintenanceSafety(ctx, v, lease.ID())
+		}, func(report repo.MaintenanceIncrementalReport) error {
+			if report.Batch == nil {
+				incrementalStopReason = report.StopReason
+				return nil
+			}
+			_, e := s.maintenanceDeliveryChange(command, item, v.ID, false, func(x *DatabaseMaintenanceRun) error {
+				if x.State == "cancel_requested" {
+					return controlError(409, "DATABASE_MAINTENANCE_CANCELLED")
+				}
+				if x.State != "running" || len(x.Steps) != 1 || x.Steps[0].State != "running" {
+					return repo.ErrRevisionConflict
+				}
+				x.Steps[0].recordIncrementalBatch(*report.Batch)
+				return nil
+			})
+			return e
+		}, plan)
+		close(done)
+		<-monitorDone
+		return err, context.Cause(command)
+	}
+	var commandCause error
+	for {
+		e, commandCause = attempt()
+		if e == nil || v.WindowEndsAt == nil || run.Err() != nil {
+			break
 		}
-		_, e := s.maintenanceDeliveryChange(command, item, v.ID, false, func(x *DatabaseMaintenanceRun) error {
+		pause := maintenancePause(e, commandCause)
+		if pause == nil {
+			break
+		}
+		if lastSession != nil {
+			check, cancel := context.WithTimeout(run, 3*time.Second)
+			active, checkErr := s.maintenance.backend.SessionActive(check, *lastSession, false)
+			cancel()
+			if active || checkErr != nil {
+				finalState = "unconfirmed"
+				problem = "DATABASE_MAINTENANCE_RESULT_UNCONFIRMED"
+				return finish(e)
+			}
+		}
+		var stopped *repo.IncrementalBatchStop
+		_, waitErr := s.maintenanceDeliveryChange(run, item, v.ID, false, func(x *DatabaseMaintenanceRun) error {
 			if x.State == "cancel_requested" {
 				return controlError(409, "DATABASE_MAINTENANCE_CANCELLED")
 			}
 			if x.State != "running" {
 				return repo.ErrRevisionConflict
 			}
-			x.Session = &session
-			x.Steps = append(x.Steps, DatabaseMaintenanceStep{TableID: id, State: "running", StartedAt: s.opts.Now().UTC()})
-			return nil
-		})
-		return e
-	}, func(id string) error {
-		_, e := s.maintenanceDeliveryChange(command, item, v.ID, false, func(x *DatabaseMaintenanceRun) error {
-			for i := range x.Steps {
-				if x.Steps[i].TableID == id && x.Steps[i].State == "running" {
-					now := s.opts.Now().UTC()
-					x.Steps[i].State = "completed"
-					x.Steps[i].FinishedAt = &now
-					x.Steps[i].IncrementalStopReason = incrementalStopReason
-					return nil
-				}
+			x.Session = nil
+			x.Wait = pause
+			if len(x.Steps) == 1 && errors.As(e, &stopped) {
+				stopped.Batch.Deferred = true
+				x.Steps[0].recordIncrementalBatch(stopped.Batch)
 			}
-			return ErrStateUnavailable
-		})
-		return e
-	}, func(ctx context.Context) error {
-		return s.maintenanceSafety(ctx, v, lease.ID())
-	}, func(report repo.MaintenanceIncrementalReport) error {
-		if report.Batch == nil {
-			incrementalStopReason = report.StopReason
 			return nil
+		})
+		if waitErr != nil {
+			return finish(waitErr)
 		}
-		_, e := s.maintenanceDeliveryChange(command, item, v.ID, false, func(x *DatabaseMaintenanceRun) error {
-			if x.State == "cancel_requested" {
-				return controlError(409, "DATABASE_MAINTENANCE_CANCELLED")
+		ready, waitErr := s.waitForMaintenanceRecovery(run, v, lease.ID(), pause)
+		if waitErr != nil {
+			commandCause = waitErr
+			e = waitErr
+			break
+		}
+		if !ready {
+			commandCause = nil
+			if pause.WAL != nil {
+				e = pause.WAL
+			} else {
+				e = controlError(409, pause.Code)
 			}
-			if x.State != "running" || len(x.Steps) != 1 || x.Steps[0].State != "running" {
-				return repo.ErrRevisionConflict
-			}
-			x.Steps[0].recordIncrementalBatch(*report.Batch)
-			return nil
-		})
-		return e
-	}, plan)
-	close(done)
-	<-monitorDone
+			break
+		}
+	}
 	if e == nil {
 		finalState = "completed"
 	} else {
@@ -404,9 +471,9 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 		case ctx.Err() != nil:
 			finalState = "unconfirmed"
 			problem = "DATABASE_MAINTENANCE_INTERRUPTED"
-		case context.Cause(command) != nil:
+		case commandCause != nil:
 			finalState = "cancelled"
-			problem = dto.CodeOf(maintenanceError(context.Cause(command)))
+			problem = dto.CodeOf(maintenanceError(commandCause))
 			if problem == "DATABASE_MAINTENANCE_DELIVERY_LEASE_LOST" {
 				finalState = "unconfirmed"
 			}
@@ -427,6 +494,51 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 	}
 	return finish(e)
 }
+
+const maintenanceSpaceInsufficient = "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT"
+
+func maintenancePause(err, cause error) *DatabaseMaintenanceWait {
+	if dto.CodeOf(cause) == maintenanceSpaceInsufficient || cause == nil && dto.CodeOf(err) == maintenanceSpaceInsufficient {
+		return &DatabaseMaintenanceWait{Code: maintenanceSpaceInsufficient}
+	}
+	var wal *repo.IncrementalWALStop
+	if cause == nil && errors.As(err, &wal) {
+		return &DatabaseMaintenanceWait{Code: "DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET", WAL: wal}
+	}
+	return nil
+}
+
+func (s *Service) waitForMaintenanceRecovery(ctx context.Context, v DatabaseMaintenanceRun, leaseID string, pause *DatabaseMaintenanceWait) (bool, error) {
+	const recheck = 30 * time.Second
+	const minimumBatch = 4 * time.Minute
+	timer := time.NewTimer(recheck)
+	defer timer.Stop()
+	for time.Until(*v.WindowEndsAt) >= minimumBatch+recheck {
+		select {
+		case <-ctx.Done():
+			return false, context.Cause(ctx)
+		case <-timer.C:
+		}
+		check, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := s.maintenanceSafety(check, v, leaseID)
+		if dto.CodeOf(err) == maintenanceSpaceInsufficient {
+			cancel()
+			timer.Reset(recheck)
+			continue
+		}
+		ready := err == nil
+		if ready && pause.WAL != nil {
+			ready, err = s.maintenance.backend.IncrementalRecoveryReady(check, pause.WAL, v.PeakBytes)
+		}
+		cancel()
+		if ready || err != nil {
+			return ready, err
+		}
+		timer.Reset(recheck)
+	}
+	return false, nil
+}
+
 func (s *Service) maintenanceSafety(ctx context.Context, v DatabaseMaintenanceRun, leaseID string) error {
 	if e := s.maintenanceGate(ctx); e != nil {
 		return e
