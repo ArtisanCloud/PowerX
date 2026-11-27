@@ -14,10 +14,7 @@ func (c *openaiClient) chatPolicy(mc *config.ModelConfig) *modelparams.Profile {
 	if provider == "" {
 		provider = "openai"
 	}
-	if p := mc.ParameterProfile; p != nil && p.Provider == provider && p.Model == mc.Model {
-		return p
-	}
-	return modelparams.Known(provider, mc.Model)
+	return modelparams.Resolve(provider, mc.Model, mc.ParameterProfile)
 }
 
 // 目录、表单及运行时共用型号参数合同；不通过生成请求探测支持情况。

@@ -76,8 +76,12 @@ type openAIStreamDelta struct {
 
 // 统一构造 URL 与头部
 func (c *openaiClient) buildEndpointAndHeaders(mc *config.ModelConfig, streaming bool) (string, http.Header, error) {
+	compatible := strings.EqualFold(c.rawProvider, "openai_compatible")
 	base := strings.TrimRight(mc.Endpoint, "/")
 	if base == "" {
+		if compatible {
+			return "", nil, errors.New("openai_compatible: missing endpoint")
+		}
 		base = "https://api.openai.com" // 默认
 	}
 	h := http.Header{}
@@ -101,11 +105,11 @@ func (c *openaiClient) buildEndpointAndHeaders(mc *config.ModelConfig, streaming
 		return url, h, nil
 	}
 
-	// 标准 OpenAI
-	if mc.APIKey == "" {
+	if mc.APIKey != "" {
+		h.Set("Authorization", "Bearer "+mc.APIKey)
+	} else if !compatible {
 		return "", nil, errors.New("openai: missing api_key")
 	}
-	h.Set("Authorization", "Bearer "+mc.APIKey)
 	h.Set("Content-Type", "application/json")
 	path := resolveAPIPath(mc)
 	url := joinEndpoint(base, path)

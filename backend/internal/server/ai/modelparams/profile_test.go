@@ -20,6 +20,25 @@ func TestModelParameterSourcesAndIsolation(t *testing.T) {
 	require.False(t, Known("openai", "gpt-6-astra").SupportsSampling("none"))
 }
 
+func TestResolveCompatibleGatewayProfiles(t *testing.T) {
+	const provider, model = "openai_compatible", "openai/gpt-6-luna"
+	stale := &Profile{Provider: provider, Model: model, Source: "unknown", Sampling: "unknown"}
+	require.False(t, Resolve(provider, model, stale).SupportsSampling(""))
+	require.Equal(t, "unknown", stale.Sampling)
+
+	reported := &Profile{Provider: provider, Model: model, Source: "provider_api", Sampling: "unknown",
+		Defaults: map[string]any{"reasoning_effort": "none"}, SupportedParametersKnown: true,
+		SupportedParameters: []string{"top_p", "max_tokens"}}
+	resolved := Resolve(provider, model, reported)
+	require.True(t, resolved.SupportsSampling(""))
+	require.False(t, resolved.SupportsSampling("high"))
+	require.False(t, resolved.Supports("temperature"))
+	require.Equal(t, "max_tokens", resolved.TokenParameter)
+	require.Equal(t, model, resolved.Model)
+	require.Equal(t, provider, resolved.Provider)
+	require.Empty(t, Known(provider, model).Defaults)
+}
+
 func TestProviderParametersKeepZeroAndDiscardUndeclaredFields(t *testing.T) {
 	p := Provider("openrouter", "custom", "https://provider.invalid/models", "2026-11-02", map[string]any{"temperature": float64(0), "top_p": .8, "api_key": "secret-fixture", "reasoning_effort": "secret-fixture", "max_tokens": float64(512)}, []string{"max_tokens", "temperature", "api_key"}, 32000)
 	require.Equal(t, "provider_api", p.Source)

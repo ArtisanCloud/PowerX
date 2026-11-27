@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,6 +56,52 @@ func TestQuickCallLLMUsesModelSpecificWireParameters(t *testing.T) {
 				require.NotContains(t, body, "temperature")
 			}
 			require.NotContains(t, body, "api_path")
+		})
+	}
+}
+
+func TestQuickCallOpenAICompatible(t *testing.T) {
+	const model = "openai/gpt-6-luna"
+	for _, test := range []struct {
+		name          string
+		saveKey       bool
+		authorization string
+	}{
+		{name: "saved Bearer key", saveKey: true, authorization: "Bearer fixture-key"},
+		{name: "keyless compatible endpoint"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			service, _ := onlineCatalogFixture(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if !assert.Equal(t, http.MethodPost, r.Method) ||
+					!assert.Equal(t, "/gateway/v1/chat/completions", r.URL.Path) ||
+					!assert.Equal(t, test.authorization, r.Header.Get("Authorization")) {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				var payload map[string]any
+				if !assert.NoError(t, json.NewDecoder(r.Body).Decode(&payload)) ||
+					!assert.Equal(t, model, payload["model"]) ||
+					!assert.NotContains(t, payload, "top_p") ||
+					!assert.NotContains(t, payload, "temperature") ||
+					!assert.NotContains(t, payload, "reasoning_effort") ||
+					!assert.EqualValues(t, 4096, payload["max_completion_tokens"]) {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				_, _ = fmt.Fprint(w, `{"choices":[{"message":{"content":"compatible reply"},"finish_reason":"stop"}]}`)
+			}))
+			t.Cleanup(server.Close)
+			endpoint := server.URL + "/gateway/v1"
+			tenant := onlineTestTenant
+			if test.saveKey {
+				savedOnlineCredential(t, service, tenant, "dev", "openai_compatible", endpoint)
+			}
+			result, err := service.QuickCallLLM(context.Background(), "dev", &tenant, "openai_compatible", model, endpoint, "", "", "", "", "", .7, 4096, "hello", LLMCallParameters{
+				TemperatureSet: true, TopP: 1, TopPSet: true,
+			})
+			require.NoError(t, err)
+			require.Equal(t, "compatible reply", result)
 		})
 	}
 }

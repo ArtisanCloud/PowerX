@@ -166,10 +166,14 @@ func envUpgradeConfig() string {
 	return "/etc/powerx/config.yaml"
 }
 
+// The installed Home release uses this database baseline. Image provenance is
+// checked by the release orchestrator before the CLI receives the source SHA.
+const supportedHomeUpgradeSource = "e93f6835c9499a958cb5a20b3af18acc81aebf16"
+
 // 先验证真实 schema / 数据，再允许已声明来源；不补记任意旧迁移为成功。
 func installedUpgradePreflight(ctx context.Context, db *gorm.DB, source, configHash string) ([]database.UpgradeBlocker, string, error) {
 	blockers := []database.UpgradeBlocker{}
-	if source != supportedUpgradeSource && source != commit {
+	if source != supportedUpgradeSource && source != supportedHomeUpgradeSource && source != commit {
 		blockers = append(blockers, database.UpgradeBlocker{Code: "UPGRADE_SOURCE_UNSUPPORTED", Message: "Source release is outside the fixed verified baseline"})
 	}
 	var serverVersion int
