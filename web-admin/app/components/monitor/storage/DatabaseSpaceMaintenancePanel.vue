@@ -71,7 +71,7 @@ const props = defineProps<{ revision?: number }>();
 defineEmits<{ openRetention: [] }>();
 const { t, te } = useI18n(), api = useStorageDatabaseMaintenanceService();
 const status = ref<DatabaseMaintenanceStatus>(), runs = ref<Record<string, DatabaseMaintenanceRun>>({});
-const selected = ref<MaintenanceTableID[]>([]), mode = ref<MaintenanceMode>('reuse');
+const selected = ref<MaintenanceTableID[]>([]), mode = ref<MaintenanceMode>('incremental');
 const preview = ref<DatabaseMaintenanceRun>(), pending = ref<MaintenanceIntent>();
 const previewOpen = ref(false), recordsOpen = ref(false), detailID = ref(''), trackedID = ref('');
 const loading = ref(false), busy = ref(false), error = ref(''), confirmed = ref(false), exclusiveConfirmed = ref(false), expired = ref(false), intentDamaged = ref(false);

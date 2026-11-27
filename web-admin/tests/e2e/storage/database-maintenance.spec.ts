@@ -86,8 +86,17 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
   try {
     f.status.snapshot = supportedSnapshot();
     await f.open();
-    await notifications.uncheck();
-    await page.getByTestId('maintenance-mode').click(); await page.getByRole('option', { name: label, exact: true }).click();
+    const modeSelect = page.getByTestId('maintenance-mode');
+    await expect(modeSelect).toContainText('分批物理缩容');
+    await expect(notifications).toBeChecked();
+    await expect(page.getByTestId('maintenance-window')).toContainText('60 分钟');
+    expect(f.calls.previews).toHaveLength(0);
+    expect(f.calls.starts).toHaveLength(0);
+    if (!incremental) {
+      await modeSelect.click();
+      await page.getByRole('option', { name: label, exact: true }).click();
+      await notifications.uncheck();
+    }
     const chosenTable = page.getByTestId('maintenance-table-' + table);
     if (incremental) {
       await chosenTable.check();
@@ -205,7 +214,10 @@ test('lost start response survives reload and cancels the original request', asy
   const f = await fixture(browser, baseURL!, 1440), page = f.page;
   try {
     await f.open(); f.calls.loseStart = true;
-    await page.getByTestId('maintenance-preview').click(); await page.getByTestId('maintenance-confirm').click(); await page.getByTestId('maintenance-start').click();
+    await page.getByTestId('maintenance-preview').click();
+    await page.getByTestId('maintenance-confirm').click();
+    await page.getByTestId('maintenance-confirm-lock').click();
+    await page.getByTestId('maintenance-start').click();
     await expect(page.getByTestId('maintenance-start')).toBeDisabled(); await expect.poll(() => f.calls.starts.length).toBe(1);
     await expect(page.getByRole('dialog')).toContainText('核对原任务'); await page.keyboard.press('Escape');
     await f.open(false); await expect(page.getByTestId('maintenance-pending')).toBeVisible();
