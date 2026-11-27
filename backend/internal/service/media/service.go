@@ -9,10 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -88,6 +90,8 @@ type assetRepository interface {
 }
 
 type MediaService struct {
+	// externalProbeClient is a package-private test seam; nil always uses the public-address guard.
+	externalProbeClient      *http.Client
 	imageProcessing          *imageProcessingPolicy
 	derivativeEventNamespace string
 	derivatives              derivativeRepository
@@ -1819,7 +1823,7 @@ func (s *MediaService) populateExternalLinkMetadata(ctx context.Context, in *Cre
 	if rawURL == "" {
 		return ErrExternalURLRequired
 	}
-	size, mime, err := probeExternalObject(ctx, rawURL)
+	size, mime, err := probeExternalObjectWithClient(ctx, rawURL, s.externalProbeClient)
 	if err != nil {
 		return err
 	}
@@ -1833,6 +1837,10 @@ func (s *MediaService) populateExternalLinkMetadata(ctx context.Context, in *Cre
 }
 
 func probeExternalObject(ctx context.Context, target string) (int64, string, error) {
+	return probeExternalObjectWithClient(ctx, target, nil)
+}
+
+func probeExternalObjectWithClient(ctx context.Context, target string, client *http.Client) (int64, string, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -1844,7 +1852,11 @@ func probeExternalObject(ctx context.Context, target string) (int64, string, err
 	if scheme != "http" && scheme != "https" {
 		return 0, "", fmt.Errorf("unsupported external url scheme: %s", parsed.Scheme)
 	}
-	client := &http.Client{Timeout: externalProbeTimeout}
+	if client == nil {
+		client = newGuardedHTTPClient(externalProbeTimeout)
+		// Each probe owns its transport. Do not retain idle sockets and goroutines.
+		defer client.CloseIdleConnections()
+	}
 	if size, mime, err := issueProbeRequest(ctx, client, http.MethodHead, parsed.String()); err == nil {
 		return size, mime, nil
 	}
@@ -1909,4 +1921,61 @@ func totalSizeFromResponse(resp *http.Response) int64 {
 		return resp.ContentLength
 	}
 	return 0
+}
+
+// newGuardedHTTPClient returns an HTTP client that refuses to connect to
+// non-public destinations (loopback, private, link-local, unique-local,
+// CGNAT and unspecified addresses). The guard runs at dial time against the
+// resolved IP, so it also covers DNS rebinding and HTTP redirects, blocking
+// SSRF against internal services and cloud metadata endpoints.
+func newGuardedHTTPClient(timeout time.Duration) *http.Client {
+	dialer := &net.Dialer{Timeout: timeout, Control: guardedDialControl}
+	transport := &http.Transport{
+		DialContext:           dialer.DialContext,
+		TLSHandshakeTimeout:   timeout,
+		ResponseHeaderTimeout: timeout,
+	}
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return fmt.Errorf("too many redirects")
+			}
+			if sch := strings.ToLower(req.URL.Scheme); sch != "http" && sch != "https" {
+				return fmt.Errorf("unsupported redirect scheme: %s", req.URL.Scheme)
+			}
+			return nil
+		},
+	}
+}
+
+func guardedDialControl(_ string, address string, _ syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("invalid dial address: %w", err)
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return fmt.Errorf("unresolved dial address: %s", host)
+	}
+	if isDisallowedProbeIP(ip) {
+		return fmt.Errorf("connection to non-public address blocked")
+	}
+	return nil
+}
+
+func isDisallowedProbeIP(ip net.IP) bool {
+	if !ip.IsGlobalUnicast() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+		ip.IsMulticast() || ip.IsUnspecified() || ip.IsPrivate() {
+		return true
+	}
+	if v4 := ip.To4(); v4 != nil {
+		// 0.0.0.0/8 (this host) and 100.64.0.0/10 (CGNAT) are not RFC1918
+		// private but still internal and must not be probed.
+		if v4[0] == 0 || (v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127) {
+			return true
+		}
+	}
+	return false
 }

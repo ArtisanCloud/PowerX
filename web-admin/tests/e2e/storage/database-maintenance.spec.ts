@@ -36,6 +36,11 @@ async function fixture(browser: Browser, baseURL: string, width: number) {
       const input = request.postDataJSON(); calls.starts.push(input);
       if (calls.loseStart) return route.abort('failed');
       const run = { ...maintenanceRun('queued', input.request_id), mode: preview.mode, preview_id: input.preview_id, tables: preview.tables };
+      if (preview.window_minutes) {
+        run.window_minutes = preview.window_minutes;
+        run.window_ends_at = new Date(Date.parse(run.at) + preview.window_minutes * 60_000).toISOString();
+        run.target_database_bytes = preview.target_database_bytes;
+      }
       status.runs = [run]; status.active = run; data = run;
     } else if (path?.endsWith('/cancellations')) {
       const input = request.postDataJSON(), id = path.split('/')[2]!; calls.cancels.push({ ...input, id });
@@ -84,10 +89,17 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
     await notifications.uncheck();
     await page.getByTestId('maintenance-mode').click(); await page.getByRole('option', { name: label, exact: true }).click();
     const chosenTable = page.getByTestId('maintenance-table-' + table);
-    if (incremental) await chosenTable.check();
+    if (incremental) {
+      await chosenTable.check();
+      await page.getByTestId('maintenance-window').click();
+      await page.getByRole('option', { name: '240 分钟', exact: true }).click();
+      await page.getByTestId('maintenance-target').fill('30');
+    }
     await f.choose('容量概览', 'overview'); await f.choose('数据库空间维护', 'databaseMaintenance');
     if (incremental) {
       await expect(chosenTable).toBeChecked();
+      await expect(page.getByTestId('maintenance-window')).toContainText('240 分钟');
+      await expect(page.getByTestId('maintenance-target')).toHaveValue('30');
       await expect(chosenTable).toBeEnabled();
       await expect(page.getByRole('radio')).toHaveCount(2);
       await expect.poll(() => f.streams.size).toBe(1);
@@ -106,7 +118,9 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
     }
     await expect(page.getByTestId('maintenance-mode')).toContainText(label);
     await page.getByTestId('maintenance-preview').click();
-    await expect.poll(() => f.calls.previews).toEqual([{ mode, tables: [table] }]);
+    const plan = incremental ? { window_minutes: 240, target_database_bytes: 30 * 2 ** 30 } : {};
+    await expect.poll(() => f.calls.previews).toEqual([{ mode, tables: [table], ...plan }]);
+    if (incremental) await expect(page.getByTestId('maintenance-preview-detail')).toContainText('30 GiB');
     await expect(page.getByTestId('maintenance-start')).toBeDisabled();
     await page.getByTestId('maintenance-confirm').click(); await expect(page.getByTestId('maintenance-start')).toBeDisabled();
     await page.getByTestId('maintenance-confirm-lock').click();
@@ -124,11 +138,15 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
     const reads = f.calls.reads; await page.waitForTimeout(1600); expect(f.calls.reads).toBe(reads);
     const partial = width === 390;
     const done = { ...maintenanceRun('completed', f.calls.starts[0].request_id), mode, tables: [table], version: 8, preview_id: f.calls.starts[0].preview_id };
+    if (incremental) {
+      Object.assign(done, plan, { window_ends_at: new Date(Date.parse(done.at) + 240 * 60_000).toISOString() });
+    }
     done.steps = done.steps.filter(row => done.tables.includes(row.table_id)).map(step => {
-      const batches: NonNullable<typeof step.incremental_batches> = [{ elapsed_ms: 8250, vacuum_attempts: 2, truncate_lock_waits: 1, heap_reclaimed_bytes: 8388608, table_change_bytes: -8388608 }];
-      if (partial) batches.push({ elapsed_ms: 14324, vacuum_attempts: 1, heap_reclaimed_bytes: 0, stop_phase: 'vacuum' });
+      const batches: NonNullable<typeof step.incremental_batches> = [{ round: 1, elapsed_ms: 8250, vacuum_attempts: 2, truncate_lock_waits: 1, heap_reclaimed_bytes: 8388608, table_change_bytes: -8388608 }];
+      if (partial) batches.push({ round: 2, elapsed_ms: 14324, vacuum_attempts: 1, heap_reclaimed_bytes: 0, stop_phase: 'vacuum' });
+      else batches.push({ round: 2, elapsed_ms: 8000, vacuum_attempts: 1, heap_reclaimed_bytes: 16777216, table_change_bytes: -16777216 });
       const incrementalProgress = incremental ? {
-        incremental: { slices_completed: 1, heap_reclaimed_bytes: 8388608 },
+        incremental: partial ? { slices_completed: 1, heap_reclaimed_bytes: 8388608 } : { slices_completed: 2, heap_reclaimed_bytes: 25165824 },
         incremental_batches: batches,
         ...(partial ? {} : { incremental_stop_reason: 'time_budget' as const }),
       } : {};
@@ -145,15 +163,16 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
     await expect(receipt).toContainText(finalLabel);
     await expect(receipt).toContainText('选定表占用变化');
     if (incremental) {
-      await expect(receipt).toContainText('已完成 1 批');
+      await expect(receipt).toContainText(partial ? '已完成 1 批' : '已完成 2 批');
       const batchDetails = receipt.getByTestId('maintenance-batch-details');
       await expect(batchDetails.getByText('重试 1 次')).toBeHidden();
       await batchDetails.getByText('查看每批结果').click();
       await expect(batchDetails).toContainText('重试 1 次');
       await expect(batchDetails).toContainText('有 1 次尝试等过截短锁');
       await expect(batchDetails).toContainText('表占用 −8 MiB');
+      await expect(batchDetails).toContainText('第 2 轮');
       if (partial) await expect(batchDetails).toContainText('清理索引或截短表尾时停止');
-      else await expect(receipt).toContainText('本轮剩余时间不足以开始下一批');
+      else await expect(receipt).toContainText('维护窗口剩余时间不足以开始下一批');
     }
     if (partial) {
       await expect(receipt).not.toContainText('正在整理');

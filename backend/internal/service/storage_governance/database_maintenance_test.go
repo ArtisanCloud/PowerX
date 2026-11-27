@@ -54,7 +54,7 @@ func (f *maintenanceFixtureBackend) SessionActive(_ context.Context, _ repo.Main
 func (f *maintenanceFixtureBackend) CheckIncremental(context.Context, repo.MaintenanceSnapshot, string) error {
 	return nil
 }
-func (f *maintenanceFixtureBackend) Execute(ctx context.Context, id, mode string, expected repo.MaintenanceSnapshot, ids []string, peakBytes int64, before func(string, repo.MaintenanceSession) error, after func(string) error, _ func(context.Context) error, _ func(repo.MaintenanceIncrementalReport) error) error {
+func (f *maintenanceFixtureBackend) Execute(ctx context.Context, id, mode string, expected repo.MaintenanceSnapshot, ids []string, peakBytes int64, before func(string, repo.MaintenanceSession) error, after func(string) error, _ func(context.Context) error, _ func(repo.MaintenanceIncrementalReport) error, _ ...repo.MaintenanceIncrementalPlan) error {
 	f.peakBytes.Store(peakBytes)
 	f.active.Store(true)
 	defer f.active.Store(false)

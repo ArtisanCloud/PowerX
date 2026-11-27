@@ -14,8 +14,9 @@ export interface MaintenanceSnapshot {
   wal_budget_bytes: number; rewrite_safe: boolean; incremental_problem?: string; tables: MaintenanceTable[];
 }
 const incrementalStopPhases = ['checks', 'measurement', 'eligibility', 'relocation', 'vacuum', 'tail_refilled', 'tail_not_truncated', 'table_not_smaller'] as const;
-const incrementalStopReasons = ['time_budget', 'batch_limit'] as const;
+const incrementalStopReasons = ['time_budget', 'batch_limit', 'target_reached'] as const;
 export interface MaintenanceIncrementalBatch {
+  round?: number;
   elapsed_ms: number;
   vacuum_attempts: number;
   truncate_lock_waits?: number;
@@ -27,6 +28,7 @@ export interface DatabaseMaintenanceRun {
   id: string; version: number; scope_id: string; state: MaintenanceState; mode: MaintenanceMode; actor: number;
   at: string; updated_at: string; expires_at?: string; preview_id?: string; tables: MaintenanceTableID[];
   before: MaintenanceSnapshot; after?: MaintenanceSnapshot; peak_bytes: number;
+  window_minutes?: number; window_ends_at?: string; target_database_bytes?: number;
   steps: {
     incremental?: { slices_completed: number; heap_reclaimed_bytes: number };
     incremental_batches?: MaintenanceIncrementalBatch[];
@@ -53,16 +55,21 @@ const time = (v: unknown): v is string => typeof v === 'string' && Number.isFini
 const table = (v: unknown): v is MaintenanceTableID => databaseMaintenanceTables.includes(v as MaintenanceTableID);
 const unwrap = (raw: any) => raw && typeof raw === 'object' && 'data' in raw ? raw.data : raw;
 function invalid(): never { throw new Error('DATABASE_MAINTENANCE_RESPONSE_INVALID'); }
-function validIncrementalBatches(step: DatabaseMaintenanceRun['steps'][number], mode: MaintenanceMode): boolean {
+function validIncrementalBatches(step: DatabaseMaintenanceRun['steps'][number], mode: MaintenanceMode, hasWindow: boolean): boolean {
   const batches = step.incremental_batches;
   if (step.incremental_stop_reason !== undefined && (mode !== 'incremental' || !incrementalStopReasons.includes(step.incremental_stop_reason))) return false;
-  if (batches === undefined) return step.incremental_stop_reason === undefined;
-  if (mode !== 'incremental' || !Array.isArray(batches) || !batches.length || batches.length > 64) return false;
-  let slices = 0, reclaimed = 0;
+  if (batches === undefined) return step.incremental_stop_reason === undefined ||
+    hasWindow && ['time_budget', 'target_reached'].includes(step.incremental_stop_reason);
+  if (mode !== 'incremental' || !Array.isArray(batches) || !batches.length || batches.length > (hasWindow ? 512 : 64)) return false;
+  let slices = 0, reclaimed = 0, round = 1;
   for (const [index, batch] of batches.entries()) {
     if (!batch || !size(batch.elapsed_ms) || !size(batch.vacuum_attempts) || batch.vacuum_attempts > 3 || !size(batch.heap_reclaimed_bytes) ||
         batch.truncate_lock_waits !== undefined && (!size(batch.truncate_lock_waits) || batch.truncate_lock_waits > batch.vacuum_attempts) ||
         batch.table_change_bytes !== undefined && !Number.isSafeInteger(batch.table_change_bytes)) return false;
+    if (hasWindow) {
+      if (!size(batch.round) || batch.round < round || batch.round > round + (index > 0 ? 1 : 0)) return false;
+      round = batch.round;
+    } else if (batch.round !== undefined) return false;
     if (batch.stop_phase !== undefined) {
       if (!incrementalStopPhases.includes(batch.stop_phase) || index !== batches.length - 1 || step.incremental_stop_reason !== undefined) return false;
     } else if (!batch.vacuum_attempts || !batch.heap_reclaimed_bytes || batch.table_change_bytes === undefined || batch.table_change_bytes >= 0) return false;
@@ -98,9 +105,15 @@ export function decodeDatabaseMaintenanceRun(raw: unknown, expectedID?: string):
         (x.incremental === undefined || d.mode === 'incremental' && x.incremental &&
           size(x.incremental.slices_completed) && x.incremental.slices_completed > 0 &&
           size(x.incremental.heap_reclaimed_bytes) && x.incremental.heap_reclaimed_bytes > 0) &&
-        validIncrementalBatches(x, d.mode)) ||
+        validIncrementalBatches(x, d.mode, d.window_minutes !== undefined)) ||
       ['filesystem_available_before', 'filesystem_available_after'].some(k => d[k] !== undefined && !size(d[k]))) invalid();
   if (d.mode === 'incremental' && d.tables.length !== 1) invalid();
+  if (d.window_minutes !== undefined) {
+    if (d.mode !== 'incremental' || !size(d.window_minutes) || d.window_minutes < 12 || d.window_minutes > 480 ||
+        d.target_database_bytes !== undefined && (!size(d.target_database_bytes) || d.target_database_bytes > 2 ** 50)) invalid();
+    if (['preview', 'consumed'].includes(d.state) ? d.window_ends_at !== undefined :
+      !time(d.window_ends_at) || Date.parse(d.window_ends_at) !== Date.parse(d.at) + d.window_minutes * 60_000) invalid();
+  } else if (d.window_ends_at !== undefined || d.target_database_bytes !== undefined) invalid();
   if (d.wal_stop !== undefined) {
     const stop = d.wal_stop;
     if (d.mode !== 'incremental' || d.problem !== 'DATABASE_MAINTENANCE_INCREMENTAL_WAL_BUDGET' ||
@@ -128,8 +141,8 @@ export function useStorageDatabaseMaintenanceService() {
   const config = (signal?: AbortSignal) => ({ signal, retry: 0, timeout: 15000, useGlobalLoading: false } as ApiRequestConfig);
   return {
     async status(signal?: AbortSignal) { return decodeDatabaseMaintenanceStatus(await api.get(path, config(signal))); },
-    async preview(mode: MaintenanceMode, tables: MaintenanceTableID[], signal?: AbortSignal) {
-      return decodeDatabaseMaintenanceRun(await api.post(path + '/previews', { mode, tables }, config(signal)));
+    async preview(mode: MaintenanceMode, tables: MaintenanceTableID[], signal?: AbortSignal, plan?: { window_minutes: number; target_database_bytes?: number }) {
+      return decodeDatabaseMaintenanceRun(await api.post(path + '/previews', { mode, tables, ...plan }, config(signal)));
     },
     async start(request_id: string, preview_id: string, exclusive_lock_confirmed: boolean, signal?: AbortSignal) {
       return decodeDatabaseMaintenanceRun(await api.post(path + '/runs', { request_id, preview_id, exclusive_lock_confirmed, confirm: true }, config(signal)), request_id);

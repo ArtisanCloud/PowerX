@@ -4,6 +4,7 @@ package modelparams
 import (
 	_ "embed"
 	"encoding/json"
+	"maps"
 	"math"
 	"strings"
 )
@@ -42,21 +43,59 @@ var officialRules = func() []struct {
 
 func Known(provider, model string) *Profile {
 	p := &Profile{Version: 1, Provider: strings.ToLower(strings.TrimSpace(provider)), Model: model, Source: "unknown", Sampling: "unknown", Defaults: map[string]any{}}
-	if p.Provider != "openai" {
+	familyModel := model
+	switch p.Provider {
+	case "openai_compatible":
+		var namespaced bool
+		familyModel, namespaced = strings.CutPrefix(model, "openai/")
+		if !namespaced {
+			return p
+		}
+	case "openai":
+	default:
 		return p
 	}
 	for _, rule := range officialRules {
 		for _, family := range rule.Families {
-			if model != family && !strings.HasPrefix(model, family+"-") {
+			if familyModel != family && !strings.HasPrefix(familyModel, family+"-") {
 				continue
 			}
 			raw, _ := json.Marshal(rule.Profile)
 			_ = json.Unmarshal(raw, p) // 每次返回独立 map，不污染其他租户或请求。
-			p.Provider, p.Model, p.Version = provider, model, 1
+			p.Provider, p.Model, p.Version = strings.ToLower(strings.TrimSpace(provider)), model, 1
+			if p.Provider == "openai_compatible" {
+				// A gateway can choose its own defaults. Only inherit the parameter rules.
+				p.Defaults = map[string]any{}
+			}
 			return p
 		}
 	}
 	return p
+}
+
+// Resolve overlays known rules on compatible gateway metadata, including older catalog snapshots.
+func Resolve(provider, model string, reported *Profile) *Profile {
+	known := Known(provider, model)
+	if reported == nil || reported.Provider != known.Provider || reported.Model != model {
+		return known
+	}
+	if known.Provider != "openai_compatible" || known.Source == "unknown" {
+		return reported
+	}
+	if reported.Source == "unknown" {
+		return known
+	}
+	profile := *reported
+	profile.Defaults = maps.Clone(reported.Defaults)
+	profile.Sampling = known.Sampling
+	profile.ReasoningEfforts = known.ReasoningEfforts
+	if profile.TokenParameter == "" {
+		profile.TokenParameter = known.TokenParameter
+		if profile.SupportedParametersKnown && profile.Supports("max_tokens") && !profile.Supports("max_completion_tokens") {
+			profile.TokenParameter = "max_tokens"
+		}
+	}
+	return &profile
 }
 
 func (p *Profile) SupportsSampling(effort string) bool {
@@ -109,7 +148,7 @@ func Provider(provider, model, source, checkedAt string, defaults map[string]any
 		return p
 	}
 	// OpenAI /models 不声明这些扩展；已核实官方合同不被兼容网关扩展覆盖。
-	if p.Source == "official_docs" {
+	if p.Provider == "openai" && p.Source == "official_docs" {
 		return p
 	}
 	p.Source, p.SourceURL, p.CheckedAt = "provider_api", source, checkedAt
@@ -126,8 +165,9 @@ func Provider(provider, model, source, checkedAt string, defaults map[string]any
 	if maxOutput > 0 && maxOutput <= 10000000 {
 		p.MaxOutputTokens = maxOutput
 	}
+	p.TokenParameter = ""
 	if p.SupportedParametersKnown && p.Supports("max_completion_tokens") && !p.Supports("max_tokens") {
 		p.TokenParameter = "max_completion_tokens"
 	}
-	return p
+	return Resolve(provider, model, p)
 }

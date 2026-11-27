@@ -109,9 +109,9 @@ const emit = defineEmits<{ 'open-system-tables': [] }>();
 const { t } = useI18n();
 const api = useStorageDatasetService();
 const tenantApi = useTenantService();
-const owner = ref('');
+const owner = ref<'all' | 'system' | 'plugin'>('all');
 const ownerOptions = computed(() => [
-  { label: t('storageGov.datasets.all'), value: '' },
+  { label: t('storageGov.datasets.all'), value: 'all' },
   { label: t('storageGov.datasets.system'), value: 'system' },
   { label: t('storageGov.datasets.plugin'), value: 'plugin' },
 ]);
@@ -154,7 +154,7 @@ async function load() {
   loading.value = true;
   listError.value = '';
   try {
-    const result = await api.list(owner.value, cursor.value, request.signal);
+    const result = await api.list(owner.value === 'all' ? '' : owner.value, cursor.value, request.signal);
     if (!request.signal.aborted) page.value = result;
   } catch (error) {
     if (!request.signal.aborted) listError.value = errorText(error);

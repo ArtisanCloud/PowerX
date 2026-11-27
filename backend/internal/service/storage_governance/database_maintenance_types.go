@@ -15,7 +15,7 @@ import (
 type DatabaseMaintenanceBackend interface {
 	Inspect(context.Context) (repo.MaintenanceSnapshot, error)
 	CheckIncremental(context.Context, repo.MaintenanceSnapshot, string) error
-	Execute(context.Context, string, string, repo.MaintenanceSnapshot, []string, int64, func(string, repo.MaintenanceSession) error, func(string) error, func(context.Context) error, func(repo.MaintenanceIncrementalReport) error) error
+	Execute(context.Context, string, string, repo.MaintenanceSnapshot, []string, int64, func(string, repo.MaintenanceSession) error, func(string) error, func(context.Context) error, func(repo.MaintenanceIncrementalReport) error, ...repo.MaintenanceIncrementalPlan) error
 	SessionActive(context.Context, repo.MaintenanceSession, bool) (bool, error)
 	RootActive(context.Context, uint64) error
 }
@@ -60,7 +60,20 @@ func (s *DatabaseMaintenanceStep) recordIncrementalBatch(batch repo.MaintenanceI
 	s.Incremental.HeapReclaimedBytes += batch.HeapReclaimedBytes
 }
 
+const maintenanceMaximumWindowMinutes = 8 * 60
+
+func validMaintenanceWindow(mode string, minutes int, targetBytes int64) bool {
+	if minutes == 0 && targetBytes == 0 {
+		return true // Older previews and receipts authorize one round.
+	}
+	return mode == repo.IncrementalMaintenanceMode && minutes >= 12 && minutes <= maintenanceMaximumWindowMinutes &&
+		targetBytes >= 0 && targetBytes <= 1<<50
+}
+
 type DatabaseMaintenanceRun struct {
+	WindowMinutes             int                       `json:"window_minutes,omitempty"`
+	WindowEndsAt              *time.Time                `json:"window_ends_at,omitempty"`
+	TargetDatabaseBytes       int64                     `json:"target_database_bytes,omitempty"`
 	ID                        string                    `json:"id"`
 	Version                   int64                     `json:"version"`
 	ScopeID                   string                    `json:"scope_id"`
@@ -96,8 +109,10 @@ type DatabaseMaintenanceStatus struct {
 	Runs          []DatabaseMaintenanceRun  `json:"runs"`
 }
 type DatabaseMaintenancePreview struct {
-	Mode   string   `json:"mode"`
-	Tables []string `json:"tables"`
+	WindowMinutes       int      `json:"window_minutes,omitempty"`
+	TargetDatabaseBytes int64    `json:"target_database_bytes,omitempty"`
+	Mode                string   `json:"mode"`
+	Tables              []string `json:"tables"`
 }
 type DatabaseMaintenanceRequest struct {
 	RequestID              string `json:"request_id"`

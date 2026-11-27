@@ -9,9 +9,8 @@ import (
 
 func enrichParameterProfiles(provider string, entries []OnlineCatalogModel) {
 	for i := range entries {
-		if entries[i].ParameterProfile == nil {
-			entries[i].ParameterProfile = modelparams.Known(provider, entries[i].ID)
-		}
+		entry := &entries[i]
+		entry.ParameterProfile = modelparams.Resolve(provider, entry.ID, entry.ParameterProfile)
 	}
 }
 
@@ -38,7 +37,7 @@ func (s *AgentSettingService) ModelParameterProfile(ctx context.Context, env str
 	}
 	for _, entry := range snapshot.Models {
 		if entry.ID == id && entry.ParameterProfile != nil {
-			return entry.ParameterProfile
+			return modelparams.Resolve(provider, id, entry.ParameterProfile)
 		}
 	}
 	return fallback
